@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* "dark:" classes apply when <html> has the "dark" class (set by useTheme) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+
+  /* The one accent colour: a calm indigo */
+  --color-accent-50: #eef0fe;
+  --color-accent-400: #8189ef;
+  --color-accent-500: #5b5bd6;
+  --color-accent-600: #4c4bc4;
+  --color-accent-950: #1b1a45;
+
+  /* Backgrounds (light mode). Use as bg-page and bg-surface. */
+  --color-page: #f7f7f5; /* soft off-white behind everything */
+  --color-surface: #ffffff; /* cards, inputs, sidebar: sit slightly above the page */
+}
+
+/* Dark mode: same names, darker values, so components never need dark:bg-… */
+.dark {
+  --color-page: ##191919;
+  --color-surface: #1e1e22;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-page text-zinc-900 dark:text-zinc-100;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent-500;
+  }
+  select {
+    appearance: none;
+  }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-slide-up { animation: slide-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.animate-fade-in { animation: fade-in 160ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-up, .animate-fade-in { animation: none; }
+}
