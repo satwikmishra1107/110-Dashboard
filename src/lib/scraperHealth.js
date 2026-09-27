@@ -26,6 +26,9 @@ function groupRunsByRunId(runs) {
       companiesOk,
       companiesFailed: allCompanyResults.length - companiesOk,
       jobsFound: allCompanyResults.reduce((total, entry) => total + (entry.count || 0), 0),
+      // Runs saved before new/updated tracking have no counts; they add up as 0
+      newJobs: allCompanyResults.reduce((total, entry) => total + (entry.newCount || 0), 0),
+      updatedJobs: allCompanyResults.reduce((total, entry) => total + (entry.updatedCount || 0), 0),
     }
   })
 }
@@ -97,6 +100,8 @@ export function summarizeScraperHealth(runs, now) {
     companiesOk,
     successPercent: companiesChecked > 0 ? Math.round((companiesOk / companiesChecked) * 100) : null,
     jobsFound: runGroups.reduce((total, runGroup) => total + runGroup.jobsFound, 0),
+    newJobs: runGroups.reduce((total, runGroup) => total + runGroup.newJobs, 0),
+    updatedJobs: runGroups.reduce((total, runGroup) => total + runGroup.updatedJobs, 0),
   }
 
   return {

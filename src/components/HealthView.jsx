@@ -14,6 +14,21 @@ function SourceStatusPill({ summary }) {
 
 // ---------- Last 24 hours: stats + run list ----------
 
+/** "2 new · 1 updated", or null when there's nothing to show. */
+function formatNewAndUpdated(newCount, updatedCount) {
+  const parts = []
+  if (newCount > 0) parts.push(`${newCount} new`)
+  if (updatedCount > 0) parts.push(`${updatedCount} updated`)
+  return parts.length > 0 ? parts.join(' · ') : null
+}
+
+/** Green text for new / updated counts, hidden when both are 0. */
+function NewAndUpdated({ newCount, updatedCount }) {
+  const label = formatNewAndUpdated(newCount, updatedCount)
+  if (!label) return null
+  return <span className="font-medium text-emerald-700 dark:text-emerald-400">{label}</span>
+}
+
 function StatTile({ label, value, detail }) {
   return (
     <div className="rounded-lg border bg-surface border-zinc-200 p-4 dark:border-zinc-800">
@@ -26,7 +41,7 @@ function StatTile({ label, value, detail }) {
 
 function DayStats({ dayStats }) {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
       <StatTile label="Runs" value={`${dayStats.runCount}/${dayStats.expectedRuns}`} detail="hourly GitHub runs" />
       <StatTile
         label="Success rate"
@@ -35,6 +50,7 @@ function DayStats({ dayStats }) {
       />
       <StatTile label="Companies OK" value={`${dayStats.companiesOk}/${dayStats.companiesChecked}`} detail="checks across all runs" />
       <StatTile label="Jobs found" value={dayStats.jobsFound} detail="across all runs (with repeats)" />
+      <StatTile label="New jobs" value={dayStats.newJobs} detail={`+ ${dayStats.updatedJobs} updated`} />
     </div>
   )
 }
@@ -69,7 +85,10 @@ function CompanyResultList({ companyResults }) {
           <div className="flex items-center justify-between gap-3">
             <span className="font-medium">{companyResult.company}</span>
             {companyResult.ok ? (
-              <span className="text-zinc-500 tabular-nums dark:text-zinc-400">{companyResult.count} jobs</span>
+              <span className="flex gap-2 text-zinc-500 tabular-nums dark:text-zinc-400">
+                {companyResult.count} jobs
+                <NewAndUpdated newCount={companyResult.newCount || 0} updatedCount={companyResult.updatedCount || 0} />
+              </span>
             ) : (
               <span className="font-medium text-amber-700 dark:text-amber-300">Failed</span>
             )}
@@ -88,6 +107,8 @@ function SourceRowDetails({ sourceRow, now }) {
   const companiesOk = sourceRow.report.filter((companyResult) => companyResult.ok).length
   const companiesFailed = sourceRow.report.length - companiesOk
   const jobsFound = sourceRow.report.reduce((total, companyResult) => total + (companyResult.count || 0), 0)
+  const newJobs = sourceRow.report.reduce((total, companyResult) => total + (companyResult.newCount || 0), 0)
+  const updatedJobs = sourceRow.report.reduce((total, companyResult) => total + (companyResult.updatedCount || 0), 0)
 
   return (
     <details className="group/source py-1.5">
@@ -100,6 +121,7 @@ function SourceRowDetails({ sourceRow, now }) {
         <span className="ml-auto flex items-center gap-3 text-[12px] text-zinc-500 tabular-nums dark:text-zinc-400">
           <span>{companiesOk}/{sourceRow.report.length} ok</span>
           <span>{jobsFound} jobs</span>
+          <NewAndUpdated newCount={newJobs} updatedCount={updatedJobs} />
           <RunStatusPill companiesFailed={companiesFailed} missingSourceCount={0} />
         </span>
       </summary>
@@ -122,6 +144,7 @@ function RunRowDetails({ runGroup, now }) {
           <span>{runGroup.sourcesReported}/{SOURCES.length} sources</span>
           <span>{runGroup.companiesOk}/{runGroup.companiesChecked} ok</span>
           <span>{runGroup.jobsFound} jobs</span>
+          <NewAndUpdated newCount={runGroup.newJobs} updatedCount={runGroup.updatedJobs} />
           <RunStatusPill companiesFailed={runGroup.companiesFailed} missingSourceCount={missingSources.length} />
         </span>
       </summary>
