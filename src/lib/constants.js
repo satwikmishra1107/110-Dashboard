@@ -1,4 +1,4 @@
-export const SOURCES = ['workday', 'greenhouse', 'lever', 'ashby', 'smartrecruiters']
+export const SOURCES = ['workday', 'greenhouse', 'lever', 'ashby', 'smartrecruiters', 'custom']
 
 export const SOURCE_LABELS = {
   workday: 'Workday',
