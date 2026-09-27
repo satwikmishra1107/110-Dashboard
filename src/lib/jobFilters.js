@@ -9,12 +9,13 @@ export function prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now) {
   return jobs.map((job) => {
     const key = makeJobKey(job.company, job.job_id)
     const savedTracking = jobTracking.get(key)
-    const firstSeenAt = new Date(job.first_seen_at)
+    // Where the job sits on the board: when it was reposted, or else when it was first seen
+    const boardDate = new Date(job.reposted_at ?? job.first_seen_at)
     const isTitleHidden = hiddenTitles.has(normalizeTitle(job.title))
 
     let badge = null
     if (job.is_update) badge = 'updated'
-    else if (now - firstSeenAt < NEW_BADGE_MS) badge = 'new'
+    else if (now - boardDate < NEW_BADGE_MS) badge = 'new'
 
     return {
       ...job,
@@ -23,7 +24,7 @@ export function prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now) {
       note: savedTracking?.note ?? '',
       isTitleHidden, // its title is on your "always hide" list
       isArchived: isTitleHidden || (savedTracking?.archived ?? false), // hidden title, or you archived this job
-      daysAgo: daysAgo(firstSeenAt, now),
+      daysAgo: daysAgo(boardDate, now),
       badge,
     }
   })
