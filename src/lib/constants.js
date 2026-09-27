@@ -6,6 +6,7 @@ export const SOURCE_LABELS = {
   lever: 'Lever',
   ashby: 'Ashby',
   smartrecruiters: 'SmartRecruiters',
+  custom: 'Custom'
 }
 
 export const STATUSES = ['new', 'interested', 'referral_requested', 'applied']
