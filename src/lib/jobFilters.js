@@ -3,7 +3,7 @@ import { daysAgo } from './time'
 
 /**
  * Combine each job with its saved status, and work out values the UI needs:
- * key, status, note, isTitleHidden, isArchived, daysAgo and badge ("new", "updated" or null).
+ * key, status, note, statusChangedAt, otherPeople, isTitleHidden, isArchived, daysAgo and badge.
  */
 export function prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now) {
   return jobs.map((job) => {
@@ -22,6 +22,8 @@ export function prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now) {
       key,
       status: savedTracking?.status ?? 'new',
       note: savedTracking?.note ?? '',
+      statusChangedAt: savedTracking?.statusChangedAt ?? null, // when YOU last changed the status
+      otherPeople: savedTracking?.otherPeople ?? [], // the other person's status, read-only
       isTitleHidden, // its title is on your "always hide" list
       isArchived: isTitleHidden || (savedTracking?.archived ?? false), // hidden title, or you archived this job
       daysAgo: daysAgo(boardDate, now),

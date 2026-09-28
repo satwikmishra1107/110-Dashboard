@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { BOARD_DAYS } from '../lib/constants'
+import { BOARD_DAYS, REFERRAL_FOLLOW_UP_MS, STATUS_DETAILS, getPersonName } from '../lib/constants'
 import { formatFullDateTime, formatPostedDate, formatTimeAgo } from '../lib/time'
 import { FreshnessBadge, SourceBadge } from './Badges'
 import { ArchiveIcon, EyeIcon, EyeOffIcon, PencilIcon, RestoreIcon } from './Icons'
@@ -105,6 +105,45 @@ function HideTitleButton({ isTitleHidden, onClick, className = '' }) {
   )
 }
 
+/**
+ * Under the title: how long ago YOU asked for a referral (amber after 12h),
+ * and the other person's status — shown only, never editable here.
+ */
+function PeopleStatusLine({ job, now }) {
+  const otherPeopleWithStatus = job.otherPeople.filter((otherPerson) => otherPerson.status !== 'new')
+  const isWaitingOnReferral = job.status === 'referral_requested' && Boolean(job.statusChangedAt)
+  if (otherPeopleWithStatus.length === 0 && !isWaitingOnReferral) return null
+
+  const isReferralOverdue = isWaitingOnReferral && now - new Date(job.statusChangedAt) > REFERRAL_FOLLOW_UP_MS
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+      {isWaitingOnReferral && (
+        <span
+          title={formatFullDateTime(job.statusChangedAt)}
+          className={isReferralOverdue ? 'font-medium text-amber-700 dark:text-amber-300' : 'text-zinc-500 dark:text-zinc-400'}
+        >
+          You asked {formatTimeAgo(job.statusChangedAt, now)}
+          {isReferralOverdue && ' · follow up?'}
+        </span>
+      )}
+      {otherPeopleWithStatus.map((otherPerson) => {
+        const statusDetails = STATUS_DETAILS[otherPerson.status] ?? STATUS_DETAILS.new
+        return (
+          <span
+            key={otherPerson.person}
+            title={otherPerson.statusChangedAt ? `Changed ${formatFullDateTime(otherPerson.statusChangedAt)}` : undefined}
+            className="inline-flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400"
+          >
+            <span className={`size-2 rounded-full ${statusDetails.dotClass}`} aria-hidden />
+            {getPersonName(otherPerson.person)}: {statusDetails.label}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 /** One job: a dense row on desktop, a card on phones. */
 function JobRow({ job, now, layout, isSelected, isMuted, onSelect, onUpdateJob, onToggleHiddenTitle }) {
   const [isEditingNote, setIsEditingNote] = useState(false)
@@ -169,6 +208,7 @@ function JobRow({ job, now, layout, isSelected, isMuted, onSelect, onUpdateJob, 
               </span>
               <FreshnessBadge badge={job.badge} />
             </div>
+            <PeopleStatusLine job={job} now={now} />
             {noteArea}
           </div>
 
@@ -197,6 +237,7 @@ function JobRow({ job, now, layout, isSelected, isMuted, onSelect, onUpdateJob, 
           </div>
           {job.location && <div className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">{job.location}</div>}
           <div className="mt-1.5 truncate text-[15px]">{job.title}</div>
+          <PeopleStatusLine job={job} now={now} />
           {noteArea}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
             <SourceBadge source={job.source} />

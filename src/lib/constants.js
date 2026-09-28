@@ -1,4 +1,4 @@
-export const SOURCES = ['workday', 'greenhouse', 'lever', 'ashby', 'smartrecruiters', 'custom']
+export const SOURCES = ['workday', 'greenhouse', 'lever', 'ashby', 'smartrecruiters']
 
 export const SOURCE_LABELS = {
   workday: 'Workday',
@@ -6,7 +6,6 @@ export const SOURCE_LABELS = {
   lever: 'Lever',
   ashby: 'Ashby',
   smartrecruiters: 'SmartRecruiters',
-  custom: 'Custom'
 }
 
 export const STATUSES = ['new', 'interested', 'referral_requested', 'applied']
@@ -23,6 +22,18 @@ export const TIME_RANGES = [
   { id: '3d', label: '3 days', days: 3 },
   { id: '7d', label: '7 days', days: 7 },
 ]
+
+// Everyone allowed through Cloudflare Access: email → name shown on the board
+export const PEOPLE = {
+  'satwikmishra1107@gmail.com': 'Satwik',
+  'nandushukla1204@gmail.com': 'Deepak',
+}
+
+export function getPersonName(email) {
+  return PEOPLE[email] ?? email
+}
+
+export const REFERRAL_FOLLOW_UP_MS = 12 * 60 * 60 * 1000 // after 12h, a referral request is due for a follow-up
 
 export const BOARD_DAYS = 7 // Board = today + the 6 days before it
 export const ARCHIVE_MAX_DAYS = 30

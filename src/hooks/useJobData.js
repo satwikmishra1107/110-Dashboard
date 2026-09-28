@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchJobs } from '../data/fetchJobs'
 import { fetchRuns } from '../data/fetchRuns'
 import { fetchHiddenTitles, hideTitle, unhideTitle } from '../data/hiddenTitles'
-import { fetchJobTracking, saveJobTracking } from '../data/jobTracking'
+import { fetchCurrentUserEmail, fetchJobTracking, saveJobTracking } from '../data/jobTracking'
 import { AUTO_REFRESH_MS, makeJobKey, normalizeTitle } from '../lib/constants'
 
 const MIN_TIME_BETWEEN_FOCUS_REFRESHES_MS = 30_000
@@ -12,11 +12,12 @@ const MIN_TIME_BETWEEN_FOCUS_REFRESHES_MS = 30_000
  *
  * Data IN (all from Supabase, loaded together):
  *   fetchJobs()         → jobs
- *   fetchJobTracking()  → your status / note / archived per job
+ *   fetchCurrentUserEmail() → who is signed in (asked once)
+ *   fetchJobTracking()  → shared archived + your status / note + the other person's status
  *   fetchHiddenTitles() → titles you always hide
  *   fetchRuns()         → scraper runs from the last 24 hours
  * Data OUT:
- *   updateJob()         → saves to the job_tracking table
+ *   updateJob()         → saves archived to job_tracking, status / note to personal_tracking
  *   toggleHiddenTitle() → saves to the hidden_titles table
  */
 export function useJobData() {
@@ -30,6 +31,8 @@ export function useJobData() {
   const [loadError, setLoadError] = useState(null)
 
   const lastLoadedAt = useRef(0)
+  // Email of whoever is signed in. Found once, then reused by every load and save.
+  const currentUserEmail = useRef(null)
   // Edits that are still being saved. A refresh must not overwrite them with older data.
   const unsavedEdits = useRef(new Map())
   // Always the newest jobTracking, readable inside callbacks without waiting for a re-render
@@ -41,10 +44,13 @@ export function useJobData() {
   const loadData = useCallback(async () => {
     setIsRefreshing(true)
     try {
+      // Tracking is split by person, so we must know who's signed in before loading it
+      if (!currentUserEmail.current) currentUserEmail.current = await fetchCurrentUserEmail()
+
       // All four requests go out at the same time; wait for all of them
       const [loadedJobs, loadedTracking, loadedHiddenTitles, loadedRuns] = await Promise.all([
         fetchJobs(),
-        fetchJobTracking(),
+        fetchJobTracking(currentUserEmail.current),
         fetchHiddenTitles(),
         fetchRuns(),
       ])
@@ -96,9 +102,13 @@ export function useJobData() {
       status: 'new',
       note: null,
       archived: false,
+      statusChangedAt: null,
+      otherPeople: [],
       ...previousTracking,
       ...changes,
     }
+    // Start the "you asked X ago" clock only when the status itself changes, not on note edits
+    if ('status' in changes) updatedTracking.statusChangedAt = new Date().toISOString()
 
     // 1. Update the screen straight away
     unsavedEdits.current.set(key, updatedTracking)
@@ -106,7 +116,7 @@ export function useJobData() {
 
     // 2. Save to Supabase
     try {
-      await saveJobTracking(updatedTracking)
+      await saveJobTracking(updatedTracking, changes, currentUserEmail.current)
       // Saved. Stop protecting it, unless a newer edit for the same job came in meanwhile.
       if (unsavedEdits.current.get(key) === updatedTracking) unsavedEdits.current.delete(key)
     } catch (error) {
