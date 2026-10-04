@@ -55,6 +55,9 @@ export const SunIcon = (props) => (
 export const MoonIcon = (props) => (
   <svg {...sharedIconProps} {...props}><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" /></svg>
 )
+export const NotebookIcon = (props) => (
+  <svg {...sharedIconProps} {...props}><rect x="5" y="3" width="15" height="18" rx="2" /><path d="M9 8h7M9 12h7M9 16h4M3 7h3M3 12h3M3 17h3" /></svg>
+)
 export const MonitorIcon = (props) => (
   <svg {...sharedIconProps} {...props}><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
 )

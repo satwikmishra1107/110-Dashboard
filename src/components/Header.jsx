@@ -1,5 +1,5 @@
 import { formatFullDateTime, formatTimeAgo } from '../lib/time'
-import { MonitorIcon, MoonIcon, RefreshIcon, SunIcon } from './Icons'
+import { MonitorIcon, MoonIcon, NotebookIcon, RefreshIcon, SunIcon } from './Icons'
 
 const TABS = [
   { id: 'board', label: 'Board' },
@@ -39,6 +39,8 @@ export default function Header({
   onRefresh,
   theme,
   onCycleTheme,
+  isNotepadOpen,
+  onToggleNotepad,
 }) {
   const ThemeIcon = THEME_BUTTONS[theme].icon
 
@@ -68,6 +70,16 @@ export default function Header({
           </span>
           <button type="button" onClick={onRefresh} disabled={isRefreshing} aria-label="Refresh now" title="Refresh now" className={`ml-1 ${iconButtonClass}`}>
             <RefreshIcon className={isRefreshing ? 'animate-spin' : ''} />
+          </button>
+          <button
+            type="button"
+            onClick={onToggleNotepad}
+            aria-label={isNotepadOpen ? 'Close notes' : 'Open notes'}
+            aria-expanded={isNotepadOpen}
+            title="Notes"
+            className={`${iconButtonClass} ${isNotepadOpen ? 'bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-200' : ''}`}
+          >
+            <NotebookIcon />
           </button>
           <button type="button" onClick={onCycleTheme} aria-label={THEME_BUTTONS[theme].label} title={THEME_BUTTONS[theme].label} className={iconButtonClass}>
             <ThemeIcon />

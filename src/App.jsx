@@ -5,6 +5,7 @@ import Header from './components/Header'
 import HealthView from './components/HealthView'
 import { CloseIcon, FilterIcon } from './components/Icons'
 import JobList, { EmptyState, LoadingSkeleton } from './components/JobList'
+import NotepadPanel from './components/NotepadPanel'
 import { useCurrentTime } from './hooks/useCurrentTime'
 import { useIsDesktop } from './hooks/useIsDesktop'
 import { useJobData } from './hooks/useJobData'
@@ -79,6 +80,7 @@ export default function App() {
 
   const [selectedJobKey, setSelectedJobKey] = useState(null)
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false)
+  const [isNotepadOpen, setIsNotepadOpen] = useState(false)
   const searchInputRef = useRef(null)
 
   // ---- Derived data: raw data + filters → what the screen shows ----
@@ -213,7 +215,11 @@ export default function App() {
         onRefresh={reload}
         theme={theme}
         onCycleTheme={cycleTheme}
+        isNotepadOpen={isNotepadOpen}
+        onToggleNotepad={() => setIsNotepadOpen((isOpen) => !isOpen)}
       />
+
+      <NotepadPanel isOpen={isNotepadOpen} onClose={() => setIsNotepadOpen(false)} />
 
       {loadError && jobs.length > 0 && (
         <div role="alert" className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-[12px] text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">

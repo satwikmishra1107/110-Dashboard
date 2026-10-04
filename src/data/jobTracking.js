@@ -1,5 +1,6 @@
 import { makeJobKey } from '../lib/constants'
 import { supabase } from '../lib/supabaseClient'
+import { NOTEPAD_COMPANY } from './notepad'
 
 /*
  * What's been done with each job, from two Supabase tables:
@@ -74,6 +75,7 @@ export async function fetchJobTracking(currentUserEmail) {
   }
 
   for (const personalRow of personalRows) {
+    if (personalRow.company === NOTEPAD_COMPANY) continue // the notepad, not a job
     const tracking = getOrCreateTracking(personalRow.company, personalRow.job_id)
     if (personalRow.person === currentUserEmail) {
       tracking.status = personalRow.status
