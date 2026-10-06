@@ -5,7 +5,8 @@ const AUTO_HIDE_PATTERN = new RegExp(`\\b(${AUTO_HIDE_WORDS.join('|')})\\b`, 'i'
 
 /** "Senior Software Engineer" → "senior", "SDE II" → null */
 function getAutoHideReason(title) {
-  const match = AUTO_HIDE_PATTERN.exec(title || '')
+  // "Engineer, Staff_CE" → "Engineer, Staff CE": "_" counts as part of a word, which would hide "Staff"
+  const match = AUTO_HIDE_PATTERN.exec((title || '').replace(/_/g, ' '))
   return match ? match[1].toLowerCase() : null
 }
 

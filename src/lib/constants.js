@@ -38,16 +38,20 @@ export const REFERRAL_FOLLOW_UP_MS = 12 * 60 * 60 * 1000 // after 12h, a referra
 
 // Titles with these words never reach the Board. They sit in the Archive on the day they're found, then drop off.
 // Whole words only: "lead" catches "Tech Lead" but not "Leading…", "ai" doesn't catch "Email".
-// Keep in step with SKIPPED_SENIORITY_WORDS in the scraper's telegram.mjs.
+// Keep in step with AUTO_HIDE_WORDS in the scraper's telegram.mjs.
 export const AUTO_HIDE_WORDS = [
   // Too senior for ~2 years' experience
-  'senior', 'sr', 'lead', 'staff', 'principal', 'director', 'manager', 'mgr', 'head', 'architect',
-  'vp', 'vice president', 'distinguished', 'fellow', 'iii', 'iv',
+  'senior', 'sr', 'lead', 'leadership', 'staff', 'principal', 'director', 'manager', 'mgr', 'head', 'architect',
+  'vp', 'vice president', 'distinguished', 'fellow', 'iv', // not 'iii': some SDE III roles ask for ~2 years
+  'smts', 'lmts', 'pmts', // Salesforce's Senior / Lead / Principal Member of Technical Staff
   // Too junior
-  'intern', 'internship',
+  'intern', 'internship', 'campus hire',
   // AI / ML
   'ai', 'ml', 'ai/ml', 'machine learning', 'llm', 'genai', 'gen ai', 'generative',
   'deep learning', 'data scientist', 'nlp', 'computer vision',
+  // CRM / enterprise platform setup, support and consulting, not product engineering
+  'salesforce', 'servicenow', 'sap', 'cpq', 'certinia', 'consultant', 'escalation',
+  'professional services', 'technology operations', 'network security',
 ]
 
 export const BOARD_DAYS = 7 // Board = today + the 6 days before it
