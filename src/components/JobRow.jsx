@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { BOARD_DAYS, REFERRAL_FOLLOW_UP_MS, STATUS_DETAILS, getPersonName } from '../lib/constants'
 import { formatFullDateTime, formatPostedDate, formatTimeAgo } from '../lib/time'
-import { FreshnessBadge, SourceBadge } from './Badges'
+import { AutoHiddenBadge, FreshnessBadge, SourceBadge } from './Badges'
 import { ArchiveIcon, EyeIcon, EyeOffIcon, PencilIcon, RestoreIcon } from './Icons'
 import StatusSelect from './StatusSelect'
 
@@ -158,8 +158,8 @@ function JobRow({ job, now, layout, isSelected, isMuted, onSelect, onUpdateJob, 
   const toggleArchived = () => onUpdateJob(job, { archived: !job.isArchived })
   const toggleHiddenTitle = () => onToggleHiddenTitle(job)
   // Hidden-title jobs are restored with the eye button instead.
-  // Jobs older than 7 days are in the Archive anyway, so the button would do nothing for them.
-  const canToggleArchive = !job.isTitleHidden && (job.isArchived || job.daysAgo < BOARD_DAYS)
+  // Auto-hidden jobs and jobs older than 7 days stay in the Archive anyway, so the button would do nothing for them.
+  const canToggleArchive = !job.isTitleHidden && !job.autoHideReason && (job.isArchived || job.daysAgo < BOARD_DAYS)
 
   let noteArea = null
   if (isEditingNote) {
@@ -207,6 +207,7 @@ function JobRow({ job, now, layout, isSelected, isMuted, onSelect, onUpdateJob, 
                 {job.title}
               </span>
               <FreshnessBadge badge={job.badge} />
+              <AutoHiddenBadge reason={job.autoHideReason} />
             </div>
             <PeopleStatusLine job={job} now={now} />
             {noteArea}
@@ -237,6 +238,11 @@ function JobRow({ job, now, layout, isSelected, isMuted, onSelect, onUpdateJob, 
           </div>
           {job.location && <div className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">{job.location}</div>}
           <div className="mt-1.5 truncate text-[15px]">{job.title}</div>
+          {job.autoHideReason && (
+            <div className="mt-1">
+              <AutoHiddenBadge reason={job.autoHideReason} />
+            </div>
+          )}
           <PeopleStatusLine job={job} now={now} />
           {noteArea}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">

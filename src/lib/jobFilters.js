@@ -1,5 +1,13 @@
-import { ARCHIVE_MAX_DAYS, BOARD_DAYS, NEW_BADGE_MS, SOURCES, STATUSES, TIME_RANGES, makeJobKey, normalizeTitle } from './constants'
+import { ARCHIVE_MAX_DAYS, AUTO_HIDE_WORDS, BOARD_DAYS, NEW_BADGE_MS, SOURCES, STATUSES, TIME_RANGES, makeJobKey, normalizeTitle } from './constants'
 import { daysAgo } from './time'
+
+const AUTO_HIDE_PATTERN = new RegExp(`\\b(${AUTO_HIDE_WORDS.join('|')})\\b`, 'i')
+
+/** "Senior Software Engineer" → "senior", "SDE II" → null */
+function getAutoHideReason(title) {
+  const match = AUTO_HIDE_PATTERN.exec(title || '')
+  return match ? match[1].toLowerCase() : null
+}
 
 /**
  * Combine each job with its saved status, and work out values the UI needs:
@@ -12,6 +20,7 @@ export function prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now) {
     // Where the job sits on the board: when it was reposted, or else when it was first seen
     const boardDate = new Date(job.reposted_at ?? job.first_seen_at)
     const isTitleHidden = hiddenTitles.has(normalizeTitle(job.title))
+    const autoHideReason = getAutoHideReason(job.title)
 
     let badge = null
     if (job.is_update) badge = 'updated'
@@ -25,7 +34,8 @@ export function prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now) {
       statusChangedAt: savedTracking?.statusChangedAt ?? null, // when YOU last changed the status
       otherPeople: savedTracking?.otherPeople ?? [], // the other person's status, read-only
       isTitleHidden, // its title is on your "always hide" list
-      isArchived: isTitleHidden || (savedTracking?.archived ?? false), // hidden title, or you archived this job
+      autoHideReason, // the word that keeps it off the Board, e.g. 'senior', or null
+      isArchived: isTitleHidden || Boolean(autoHideReason) || (savedTracking?.archived ?? false), // hidden title, auto-hidden, or you archived this job
       daysAgo: daysAgo(boardDate, now),
       badge,
     }
@@ -45,8 +55,9 @@ export function countSummary(jobs) {
 }
 
 function belongsToCurrentTab(job, filters) {
-  // Archive = jobs you archived yourself + jobs older than 7 days
+  // Archive = jobs you archived yourself + jobs older than 7 days + today's auto-hidden jobs
   if (filters.tab === 'archive') {
+    if (job.autoHideReason) return job.daysAgo === 0
     return job.isArchived || (job.daysAgo >= BOARD_DAYS && job.daysAgo <= ARCHIVE_MAX_DAYS)
   }
   const selectedRange = TIME_RANGES.find((range) => range.id === filters.range)

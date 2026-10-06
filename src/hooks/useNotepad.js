@@ -4,19 +4,12 @@ import { fetchNotepad, saveNotepad } from '../data/notepad'
 
 const SAVE_DELAY_MS = 800
 
-/**
- * The notepad text, loaded each time it's opened and saved shortly after you stop typing
- * (and straight away when you close it).
- * saveState: 'loading' | 'saved' | 'unsaved' | 'saving' | 'error'
- */
 export function useNotepad(isOpen) {
   const [text, setText] = useState('')
   const [saveState, setSaveState] = useState('loading')
 
   const currentUserEmail = useRef(null)
-  // What Supabase has. null until the first load finishes.
   const savedText = useRef(null)
-  // Always the newest text, readable inside callbacks without waiting for a re-render
   const latestText = useRef('')
   const saveTimer = useRef(null)
 

@@ -8,6 +8,19 @@ export function SourceBadge({ source }) {
   )
 }
 
+/** "Auto-hidden: senior" — the title word that kept this job off the Board. */
+export function AutoHiddenBadge({ reason }) {
+  if (!reason) return null
+  return (
+    <span
+      title="Kept off the Board by the auto-hide word list. Shown here only on the day it's found."
+      className="inline-flex shrink-0 items-center rounded border border-zinc-200 px-1.5 text-[10px] font-medium text-zinc-500 dark:border-zinc-800 dark:text-zinc-400"
+    >
+      Auto-hidden: {reason}
+    </span>
+  )
+}
+
 /** "NEW" for jobs under 24h old, "UPDATED" for jobs that came back after being removed. */
 export function FreshnessBadge({ badge }) {
   if (badge === 'updated') {

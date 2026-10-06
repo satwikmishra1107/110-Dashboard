@@ -150,7 +150,7 @@ export default function App() {
   const rangeLabel = TIME_RANGES.find((timeRange) => timeRange.id === filters.range).label.toLowerCase()
   const listDescription =
     filters.tab === 'archive'
-      ? 'archived by you or 8–30 days old'
+      ? 'archived by you, 8–30 days old, or auto-hidden today'
       : filters.range === 'today'
         ? 'found today'
         : `found in the last ${rangeLabel}`
@@ -171,7 +171,7 @@ export default function App() {
       />
     )
   } else if (visibleJobs.length === 0 && filters.tab === 'archive') {
-    listContent = <EmptyState title="The archive is empty" description="Jobs you archive, and jobs first seen 8–30 days ago, show up here." />
+    listContent = <EmptyState title="The archive is empty" description="Jobs you archive, jobs first seen 8–30 days ago, and today's auto-hidden jobs show up here." />
   } else if (visibleJobs.length === 0) {
     listContent = (
       <EmptyState
