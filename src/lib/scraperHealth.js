@@ -5,64 +5,89 @@ const MILLISECONDS_PER_HOUR = 60 * 60 * 1000
 const RUNS_PER_FULL_DAY = 24 // the workflow runs hourly
 
 /**
- * Group the rows by run_id: one group = one hourly GitHub run = up to one row per source.
+ * Group the summary rows by run_id: one group = one hourly GitHub run = up to one row per source.
  * Rows arrive newest first, and a Map keeps insertion order, so the groups are newest first too.
+ * sourceRows holds the full rows (with each company's result) for runs in the last 48 hours,
+ * and is null for older runs — only their totals are loaded.
  */
-function groupRunsByRunId(runs) {
-  const sourceRowsByRunId = new Map()
-  for (const run of runs) {
-    if (!sourceRowsByRunId.has(run.run_id)) sourceRowsByRunId.set(run.run_id, [])
-    sourceRowsByRunId.get(run.run_id).push(run)
+function groupRunsByRunId(runSummaries, runDetails) {
+  const summaryRowsByRunId = new Map()
+  for (const summaryRow of runSummaries) {
+    if (!summaryRowsByRunId.has(summaryRow.run_id)) summaryRowsByRunId.set(summaryRow.run_id, [])
+    summaryRowsByRunId.get(summaryRow.run_id).push(summaryRow)
   }
 
-  return [...sourceRowsByRunId.entries()].map(([runId, sourceRows]) => {
-    const allCompanyResults = sourceRows.flatMap((sourceRow) => sourceRow.report)
-    const companiesOk = allCompanyResults.filter((entry) => entry.ok).length
+  const detailRowsByRunId = new Map()
+  for (const detailRow of runDetails) {
+    if (!detailRowsByRunId.has(detailRow.run_id)) detailRowsByRunId.set(detailRow.run_id, [])
+    detailRowsByRunId.get(detailRow.run_id).push(detailRow)
+  }
+
+  return [...summaryRowsByRunId.entries()].map(([runId, summaryRows]) => {
+    const detailRows = detailRowsByRunId.get(runId)
+    const companiesChecked = summaryRows.reduce((total, summaryRow) => total + summaryRow.companies_checked, 0)
+    const companiesOk = summaryRows.reduce((total, summaryRow) => total + summaryRow.companies_ok, 0)
     return {
       runId,
-      ranAt: sourceRows[sourceRows.length - 1].scraped_at, // oldest row = when the first scraper finished
+      ranAt: summaryRows[summaryRows.length - 1].scraped_at, // oldest row = when the first scraper finished
       // Same order as SOURCES, so the detail view always lists Workday, Greenhouse, …
-      sourceRows: [...sourceRows].sort((firstRow, secondRow) => SOURCES.indexOf(firstRow.source) - SOURCES.indexOf(secondRow.source)),
-      sourcesReported: sourceRows.length,
-      companiesChecked: allCompanyResults.length,
+      sourceRows: detailRows
+        ? [...detailRows].sort((firstRow, secondRow) => SOURCES.indexOf(firstRow.source) - SOURCES.indexOf(secondRow.source))
+        : null,
+      sourcesReported: summaryRows.length,
+      companiesChecked,
       companiesOk,
-      companiesFailed: allCompanyResults.length - companiesOk,
+      companiesFailed: companiesChecked - companiesOk,
       // Runs saved before new/updated tracking have no counts; they add up as 0
-      newJobs: allCompanyResults.reduce((total, entry) => total + (entry.newCount || 0), 0),
-      updatedJobs: allCompanyResults.reduce((total, entry) => total + (entry.updatedCount || 0), 0),
+      newJobs: summaryRows.reduce((total, summaryRow) => total + summaryRow.new_jobs, 0),
+      updatedJobs: summaryRows.reduce((total, summaryRow) => total + summaryRow.updated_jobs, 0),
     }
   })
 }
 
 /**
- * How often each company failed over the given runs, worst first.
+ * How often each company failed over the given summary rows, worst first.
  * - repeatFailures: companies that failed 2+ times, each with its error messages and how often each happened
  * - oneOffFailures: companies that failed just once, grouped by error (often one bad run hit many at once)
+ *
+ * Summary rows only list the companies that failed, so a company's "checks" is how many times
+ * its source ran — the same thing, as long as the company was on that source's list all week.
  */
-function summarizeFailures(runs) {
+function summarizeFailures(runSummaries) {
+  const runsBySource = new Map()
+  const latestRowBySource = new Map()
+  for (const summaryRow of runSummaries) {
+    runsBySource.set(summaryRow.source, (runsBySource.get(summaryRow.source) ?? 0) + 1)
+    const latestRow = latestRowBySource.get(summaryRow.source)
+    if (!latestRow || summaryRow.scraped_at > latestRow.scraped_at) latestRowBySource.set(summaryRow.source, summaryRow)
+  }
+
   const statsByCompany = new Map()
-  for (const run of runs) {
-    for (const entry of run.report) {
-      const key = `${run.source}|${entry.company}`
+  for (const summaryRow of runSummaries) {
+    for (const failure of summaryRow.failures) {
+      const key = `${summaryRow.source}|${failure.company}`
       if (!statsByCompany.has(key)) {
-        statsByCompany.set(key, { company: entry.company, source: run.source, checks: 0, failures: 0, errorCounts: new Map(), lastFailedAt: null, latestAt: null, isFailingNow: false })
+        // The newest run of its source decides whether it's still failing now
+        const latestFailures = latestRowBySource.get(summaryRow.source).failures
+        statsByCompany.set(key, {
+          company: failure.company,
+          source: summaryRow.source,
+          checks: runsBySource.get(summaryRow.source),
+          failures: 0,
+          errorCounts: new Map(),
+          lastFailedAt: null,
+          isFailingNow: latestFailures.some((latestFailure) => latestFailure.company === failure.company),
+        })
       }
       const stats = statsByCompany.get(key)
-      stats.checks += 1
-      // The newest result decides whether it's still failing now
-      if (!stats.latestAt || run.scraped_at > stats.latestAt) {
-        stats.latestAt = run.scraped_at
-        stats.isFailingNow = !entry.ok
-      }
-      if (entry.ok) continue
-      const error = entry.error || 'Unknown error'
+      const error = failure.error || 'Unknown error'
       stats.failures += 1
       stats.errorCounts.set(error, (stats.errorCounts.get(error) ?? 0) + 1)
-      if (!stats.lastFailedAt || run.scraped_at > stats.lastFailedAt) stats.lastFailedAt = run.scraped_at
+      if (!stats.lastFailedAt || summaryRow.scraped_at > stats.lastFailedAt) stats.lastFailedAt = summaryRow.scraped_at
     }
   }
 
-  const failedCompanies = [...statsByCompany.values()].filter((stats) => stats.failures > 0)
+  const failedCompanies = [...statsByCompany.values()]
 
   const repeatFailures = failedCompanies
     .filter((stats) => stats.failures > 1)
@@ -84,7 +109,10 @@ function summarizeFailures(runs) {
     .map(([message, companies]) => ({ message, companies: companies.sort((first, second) => first.company.localeCompare(second.company)) }))
     .sort((first, second) => second.companies.length - first.companies.length)
 
-  return { repeatFailures, oneOffFailures, companiesChecked: statsByCompany.size }
+  // Companies checked = the companies in each source's newest run
+  const companiesChecked = [...latestRowBySource.values()].reduce((total, latestRow) => total + latestRow.companies_checked, 0)
+
+  return { repeatFailures, oneOffFailures, companiesChecked }
 }
 
 /** A job that made it past the auto-hide words and your "always hide" titles. */
@@ -97,22 +125,21 @@ const passedFilters = (job) => !job.autoHideReason && !job.isTitleHidden
  * - staleSources: sources that haven't run in over 2 hours
  * - lastScrapedAt: the newest run across all sources (for the header)
  * - weekStats: totals for the last 7 days (for the stats at the top)
- * - dayGroups: one entry per day, newest first, each holding that day's runs
+ * - dayGroups: one entry per day, newest first, each holding that day's run count and
+ *   the runs from the last 48 hours that can be opened
  *
+ * runs = { runSummaries, runDetails } from fetchRuns(): 7 days of totals, 48 hours of full rows.
  * New-job numbers come from the jobs themselves, not the run reports, so jobs deleted
  * from the database since (e.g. a bad first run) don't count.
  */
 export function summarizeScraperHealth(runs, jobs, now) {
+  const { runSummaries, runDetails } = runs
   const sourceSummaries = []
   let lastScrapedAt = null
 
   for (const source of SOURCES) {
-    const runsNewestFirst = runs
-      .filter((run) => run.source === source)
-      .sort((firstRun, secondRun) => new Date(secondRun.scraped_at) - new Date(firstRun.scraped_at))
-
-    const latestRun = runsNewestFirst[0]
-    const latestReport = latestRun?.report ?? []
+    // Rows arrive newest first, so the first one is the latest run
+    const latestRun = runSummaries.find((summaryRow) => summaryRow.source === source)
     const latestRunTime = latestRun ? new Date(latestRun.scraped_at).getTime() : null
 
     if (latestRunTime && (lastScrapedAt === null || latestRunTime > lastScrapedAt)) {
@@ -123,14 +150,14 @@ export function summarizeScraperHealth(runs, jobs, now) {
       source,
       lastRunAt: latestRun?.scraped_at ?? null,
       isStale: latestRunTime === null || now - latestRunTime > STALE_SOURCE_MS,
-      companiesChecked: latestReport.length,
-      companiesOk: latestReport.filter((entry) => entry.ok).length,
-      companiesFailed: latestReport.filter((entry) => !entry.ok).length,
+      companiesChecked: latestRun?.companies_checked ?? 0,
+      companiesOk: latestRun?.companies_ok ?? 0,
+      companiesFailed: latestRun ? latestRun.companies_checked - latestRun.companies_ok : 0,
     })
   }
 
   // Only whole calendar days: today + the 6 before it
-  const runGroups = groupRunsByRunId(runs).filter((runGroup) => daysAgo(runGroup.ranAt, now) < HEALTH_DAYS)
+  const runGroups = groupRunsByRunId(runSummaries, runDetails).filter((runGroup) => daysAgo(runGroup.ranAt, now) < HEALTH_DAYS)
   const recentJobs = jobs.filter((job) => job.daysAgo < HEALTH_DAYS)
 
   const dayGroups = []
@@ -143,7 +170,8 @@ export function summarizeScraperHealth(runs, jobs, now) {
     dayGroups.push({
       dayStart: dayStart.toISOString(),
       isToday: daysBack === 0,
-      runGroups: runsThatDay,
+      runCount: runsThatDay.length,
+      runGroups: runsThatDay.filter((runGroup) => runGroup.sourceRows), // only these can be opened
       // Today isn't over, so count the hours so far
       expectedRuns: daysBack === 0 ? Math.max(1, Math.floor((now - dayStart) / MILLISECONDS_PER_HOUR)) : RUNS_PER_FULL_DAY,
       failedChecks: runsThatDay.reduce((total, runGroup) => total + runGroup.companiesFailed, 0),
@@ -165,7 +193,7 @@ export function summarizeScraperHealth(runs, jobs, now) {
 
   return {
     sourceSummaries,
-    failureSummary: summarizeFailures(runs.filter((run) => daysAgo(run.scraped_at, now) < HEALTH_DAYS)),
+    failureSummary: summarizeFailures(runSummaries.filter((summaryRow) => daysAgo(summaryRow.scraped_at, now) < HEALTH_DAYS)),
     staleSources: sourceSummaries.filter((summary) => summary.isStale),
     lastScrapedAt,
     weekStats,

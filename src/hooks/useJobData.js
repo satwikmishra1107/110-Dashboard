@@ -15,7 +15,7 @@ const MIN_TIME_BETWEEN_FOCUS_REFRESHES_MS = 30_000
  *   fetchCurrentUserEmail() → who is signed in (asked once)
  *   fetchJobTracking()  → shared archived + your status / note + the other person's status
  *   fetchHiddenTitles() → titles you always hide
- *   fetchRuns()         → scraper runs from the last 24 hours
+ *   fetchRuns()         → scraper runs: 7 days of totals + 48 hours of full detail
  * Data OUT:
  *   updateJob()         → saves archived to job_tracking, status / note to personal_tracking
  *   toggleHiddenTitle() → saves to the hidden_titles table
@@ -24,7 +24,7 @@ export function useJobData() {
   const [jobs, setJobs] = useState([])
   // What you've done with each job (status, note, archived), looked up by makeJobKey(company, job_id)
   const [jobTracking, setJobTracking] = useState(() => new Map())
-  const [runs, setRuns] = useState([])
+  const [runs, setRuns] = useState({ runSummaries: [], runDetails: [] })
   const [hiddenTitles, setHiddenTitles] = useState(() => new Set())
   const [isFirstLoad, setIsFirstLoad] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)

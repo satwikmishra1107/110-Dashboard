@@ -1,36 +1,53 @@
-import { HEALTH_DAYS } from '../lib/constants'
+import { HEALTH_DAYS, RUN_DETAILS_HOURS } from '../lib/constants'
 import { supabase } from '../lib/supabaseClient'
 
 const ROWS_PER_PAGE = 1000 // Supabase returns at most 1000 rows per request
 
-/**
- * Scraper runs from the last 7 days, newest first — GitHub runs only.
- * Each scraper adds one row to the `runs` table when it finishes. All scrapers in one
- * GitHub workflow run share the same run_id; local runs have run_id = null and are skipped.
- * { run_id: 18123456789, source: 'workday', scraped_at: '2026-09-26T10:02:00Z',
- *   report: [{ company: 'Walmart', ok: false, count: 0, error: 'HTTP 429' }, …] }
- */
-export async function fetchRuns() {
-  const sevenDaysAgo = new Date(Date.now() - HEALTH_DAYS * 24 * 60 * 60 * 1000).toISOString()
-  const allRuns = []
+/** GitHub runs (run_id set) since a time, newest first, page by page until a page comes back short. */
+async function fetchRunRows(tableName, columns, since) {
+  const allRows = []
   let pageStart = 0
 
-  // 7 days is about 1000 rows, so ask page by page until a page comes back short
   while (true) {
-    const { data: pageOfRuns, error } = await supabase
-      .from('runs')
-      .select('id, run_id, source, scraped_at, report')
+    const { data: pageOfRows, error } = await supabase
+      .from(tableName)
+      .select(columns)
       .not('run_id', 'is', null)
-      .gte('scraped_at', sevenDaysAgo)
+      .gte('scraped_at', since)
       .order('scraped_at', { ascending: false })
       .order('id') // tie-breaker, so paging never skips or repeats a row
       .range(pageStart, pageStart + ROWS_PER_PAGE - 1)
 
     if (error) throw new Error(`Could not load scraper runs: ${error.message}`)
 
-    allRuns.push(...pageOfRuns)
-    if (pageOfRuns.length < ROWS_PER_PAGE) break
+    allRows.push(...pageOfRows)
+    if (pageOfRows.length < ROWS_PER_PAGE) break
     pageStart += ROWS_PER_PAGE
   }
-  return allRuns
+  return allRows
+}
+
+/**
+ * Scraper runs, in two sizes. Each scraper adds one row to the `runs` table when it finishes;
+ * all scrapers in one GitHub workflow run share the same run_id (local runs have none and are skipped).
+ *
+ * runSummaries — last 7 days, from the run_summaries view: each row's report already added up in
+ *   Supabase, plus only the companies that failed. Small, so the 7-day stats stay cheap.
+ *   { id, run_id, source, scraped_at, companies_checked: 22, companies_ok: 21, new_jobs: 3, updated_jobs: 0,
+ *     failures: [{ company: 'Walmart', error: 'HTTP 429' }] }
+ *
+ * runDetails — last 48 hours, full rows for the clickable run history.
+ *   { id, run_id, source, scraped_at, report: [{ company: 'Walmart', ok: false, count: 0, error: 'HTTP 429' }, …] }
+ */
+export async function fetchRuns() {
+  const hoursAgo = (hours) => new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
+  const [runSummaries, runDetails] = await Promise.all([
+    fetchRunRows(
+      'run_summaries',
+      'id, run_id, source, scraped_at, companies_checked, companies_ok, new_jobs, updated_jobs, failures',
+      hoursAgo(HEALTH_DAYS * 24),
+    ),
+    fetchRunRows('runs', 'id, run_id, source, scraped_at, report', hoursAgo(RUN_DETAILS_HOURS)),
+  ])
+  return { runSummaries, runDetails }
 }

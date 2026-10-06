@@ -1,4 +1,4 @@
-import { HEALTH_DAYS, SOURCE_LABELS, SOURCES } from '../lib/constants'
+import { HEALTH_DAYS, RUN_DETAILS_HOURS, SOURCE_LABELS, SOURCES } from '../lib/constants'
 import { formatClockTime, formatDayLabel, formatFullDateTime, formatShortDate, formatTimeAgo } from '../lib/time'
 import { WarningIcon } from './Icons'
 
@@ -214,9 +214,13 @@ function RunRowDetails({ runGroup, now }) {
   )
 }
 
-/** Level 1: one day. A shaded header bar; open it to see that day's runs. Today starts open. */
+/**
+ * Level 1: one day. A shaded header bar; open it to see that day's runs. Today starts open.
+ * Only runs from the last 48 hours can be opened — older days show their totals only.
+ */
 function DayDetails({ dayGroup, now }) {
-  const isMissingRuns = !dayGroup.isToday && dayGroup.runGroups.length < dayGroup.expectedRuns
+  const isMissingRuns = !dayGroup.isToday && dayGroup.runCount < dayGroup.expectedRuns
+  const runsWithoutDetails = dayGroup.runCount - dayGroup.runGroups.length
   return (
     <details open={dayGroup.isToday} className="group/day overflow-hidden rounded-lg border border-zinc-200 bg-surface dark:border-zinc-800">
       <summary className={`${SUMMARY_CLASS} bg-zinc-100/80 px-4 py-3 hover:bg-zinc-100 dark:bg-zinc-800/50 dark:hover:bg-zinc-800/70`}>
@@ -230,16 +234,21 @@ function DayDetails({ dayGroup, now }) {
             <span className="font-medium text-zinc-800 dark:text-zinc-200">{dayGroup.jobsPassed}</span> passed filters
           </span>
           <span className={isMissingRuns ? 'text-amber-700 dark:text-amber-300' : undefined}>
-            {dayGroup.runGroups.length}/{dayGroup.expectedRuns} runs
+            {dayGroup.runCount}/{dayGroup.expectedRuns} runs
           </span>
           {dayGroup.failedChecks > 0 ? <Pill tone="neutral">{dayGroup.failedChecks} failed</Pill> : <Pill tone="ok">OK</Pill>}
         </span>
       </summary>
 
-      {dayGroup.runGroups.length === 0 ? (
+      {dayGroup.runCount === 0 && (
         <p className="border-t border-zinc-100 px-4 py-4 text-[13px] text-zinc-500 dark:border-zinc-800/70 dark:text-zinc-400">No runs recorded this day.</p>
-      ) : (
-        dayGroup.runGroups.map((runGroup) => <RunRowDetails key={runGroup.runId} runGroup={runGroup} now={now} />)
+      )}
+      {dayGroup.runGroups.map((runGroup) => <RunRowDetails key={runGroup.runId} runGroup={runGroup} now={now} />)}
+      {runsWithoutDetails > 0 && (
+        <p className="border-t border-zinc-100 px-4 py-4 text-[13px] text-zinc-500 dark:border-zinc-800/70 dark:text-zinc-400">
+          {dayGroup.runGroups.length > 0 ? `${runsWithoutDetails} earlier ${runsWithoutDetails === 1 ? 'run' : 'runs'} not shown — ` : ''}
+          run details are only kept for the last {RUN_DETAILS_HOURS} hours. This day's totals above still count every run.
+        </p>
       )}
     </details>
   )
