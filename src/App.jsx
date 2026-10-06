@@ -89,7 +89,7 @@ export default function App() {
     [jobs, jobTracking, hiddenTitles, now],
   )
   const summary = useMemo(() => (isFirstLoad ? null : countSummary(jobsWithStatus)), [jobsWithStatus, isFirstLoad])
-  const health = useMemo(() => summarizeScraperHealth(runs, now), [runs, now])
+  const health = useMemo(() => summarizeScraperHealth(runs, jobsWithStatus, now), [runs, jobsWithStatus, now])
   const { visibleJobs, filterCounts } = useMemo(
     () => filterJobs(jobsWithStatus, filters),
     [jobsWithStatus, filters],

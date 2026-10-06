@@ -21,7 +21,7 @@
 
 /* Dark mode: same names, darker values, so components never need dark:bg-… */
 .dark {
-  --color-page: ##191919;
+  --color-page: #191919;
   --color-surface: #1e1e22;
 }
 

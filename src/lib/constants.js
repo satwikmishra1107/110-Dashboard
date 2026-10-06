@@ -56,6 +56,7 @@ export const AUTO_HIDE_WORDS = [
 
 export const BOARD_DAYS = 7 // Board = today + the 6 days before it
 export const ARCHIVE_MAX_DAYS = 30
+export const HEALTH_DAYS = 7 // the Scraper health tab covers today + the 6 days before it
 export const AUTO_REFRESH_MS = 5 * 60 * 1000
 export const STALE_SOURCE_MS = 2 * 60 * 60 * 1000
 export const NEW_BADGE_MS = 24 * 60 * 60 * 1000

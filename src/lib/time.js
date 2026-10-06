@@ -30,6 +30,19 @@ export function formatTimeAgo(timestamp, now) {
   return `${Math.max(1, daysAgo(timestamp, now))}d ago` // calendar days, to match the day headings
 }
 
+/** "10:30 am" */
+export function formatClockTime(timestamp) {
+  return new Date(timestamp).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+}
+
+/** "Today", "Yesterday", or "Mon, 4 Oct" */
+export function formatDayLabel(timestamp, now) {
+  const daysBack = daysAgo(timestamp, now)
+  if (daysBack === 0) return 'Today'
+  if (daysBack === 1) return 'Yesterday'
+  return formatShortDate(timestamp, true)
+}
+
 /** Full date and time, used in hover tooltips. */
 export function formatFullDateTime(timestamp) {
   return new Date(timestamp).toLocaleString(undefined, {
