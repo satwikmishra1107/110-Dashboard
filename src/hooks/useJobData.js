@@ -159,6 +159,7 @@ export function useJobData() {
   }, [hiddenTitles])
 
   return {
+    currentUserEmail: currentUserEmail.current, // null until the first load has found out who's signed in
     jobs,
     jobTracking,
     runs,

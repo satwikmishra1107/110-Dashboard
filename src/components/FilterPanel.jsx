@@ -1,4 +1,4 @@
-import { SOURCE_LABELS, STATUS_DETAILS, TIME_RANGES } from '../lib/constants'
+import { PEOPLE, SOURCE_LABELS, STATUS_DETAILS, TIME_RANGES, getPersonName, getPersonSlug } from '../lib/constants'
 import { CloseIcon, SearchIcon } from './Icons'
 
 /** Add the value if it's missing, remove it if it's there. */
@@ -69,34 +69,68 @@ export function SearchBox({ value, onChange, inputRef }) {
   )
 }
 
-export default function FilterPanel({ filters, updateFilters, filterCounts }) {
+/** A row of buttons where exactly one is picked, e.g. Today / 3 days / 7 days. */
+function SegmentedControl({ label, options, value, onChange }) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="grid auto-cols-fr grid-flow-col gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900"
+    >
+      {options.map((option) => {
+        const isActive = value === option.value
+        return (
+          <button
+            key={option.value ?? 'default'}
+            type="button"
+            role="radio"
+            aria-checked={isActive}
+            onClick={() => onChange(option.value)}
+            className={`h-8 truncate rounded-md px-1 text-[13px] font-medium transition-colors ${
+              isActive
+                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
+                : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+            }`}
+          >
+            {option.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+export default function FilterPanel({ filters, updateFilters, filterCounts, currentUserEmail }) {
+  // "Mine" (no ?by=) + everyone else. by = null also covers ?by=<your own name>.
+  const otherEmails = Object.keys(PEOPLE).filter((email) => email !== currentUserEmail)
+  const personOptions = [
+    { value: null, label: 'Mine' },
+    ...otherEmails.map((email) => ({ value: getPersonSlug(email), label: getPersonName(email) })),
+  ]
+
   return (
     <div className="divide-y divide-zinc-100 dark:divide-zinc-900">
       {filters.tab === 'board' && (
         <FilterSection title="Found within">
-          <div role="radiogroup" aria-label="Time range" className="grid grid-cols-3 gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900">
-            {TIME_RANGES.map((timeRange) => {
-              const isActive = filters.range === timeRange.id
-              return (
-                <button
-                  key={timeRange.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={isActive}
-                  onClick={() => updateFilters({ range: timeRange.id })}
-                  className={`h-8 rounded-md text-[13px] font-medium transition-colors ${
-                    isActive
-                      ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
-                      : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  {timeRange.label}
-                </button>
-              )
-            })}
-          </div>
+          <SegmentedControl
+            label="Time range"
+            options={TIME_RANGES.map((timeRange) => ({ value: timeRange.id, label: timeRange.label }))}
+            value={filters.range}
+            onChange={(range) => updateFilters({ range })}
+          />
         </FilterSection>
       )}
+
+      {/* {personOptions.length > 1 && (
+        <FilterSection title="Whose status">
+          <SegmentedControl
+            label="Whose status"
+            options={personOptions}
+            value={filters.by}
+            onChange={(by) => updateFilters({ by })}
+          />
+        </FilterSection>
+      )} */}
 
       <FilterSection
         title="Status"

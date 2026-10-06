@@ -1,4 +1,15 @@
-import { ARCHIVE_MAX_DAYS, AUTO_HIDE_WORDS, BOARD_DAYS, NEW_BADGE_MS, SOURCES, STATUSES, TIME_RANGES, makeJobKey, normalizeTitle } from './constants'
+import {
+  ARCHIVE_MAX_DAYS,
+  AUTO_HIDE_WORDS,
+  BOARD_DAYS,
+  NEW_BADGE_MS,
+  SOURCES,
+  STATUSES,
+  TIME_RANGES,
+  findPersonBySlug,
+  makeJobKey,
+  normalizeTitle,
+} from './constants'
 import { daysAgo } from './time'
 
 const AUTO_HIDE_PATTERN = new RegExp(`\\b(${AUTO_HIDE_WORDS.join('|')})\\b`, 'i')
@@ -86,18 +97,29 @@ function countBy(items, getValue, valuesToAlwaysInclude = []) {
  * - filterCounts: numbers next to each checkbox. Each group is counted with the
  *   OTHER filter applied, so a number tells you what ticking it would show.
  */
-export function filterJobs(jobs, filters) {
+export function filterJobs(jobs, filters, currentUserEmail) {
   const searchWords = filters.search.toLowerCase().split(/\s+/).filter(Boolean)
 
   const jobsInTab = jobs.filter((job) => belongsToCurrentTab(job, filters) && matchesSearch(job, searchWords))
 
+  // ?by=deepak → the Status filter (and its counts) use Deepak's status instead of yours.
+  // With no status ticked, it shows every job they've touched (anything but "New").
+  const byEmail = filters.by ? findPersonBySlug(filters.by) : null
+  const isLookingAtSomeoneElse = Boolean(byEmail) && byEmail !== currentUserEmail
+  const getStatus = isLookingAtSomeoneElse
+    ? (job) => job.otherPeople.find((otherPerson) => otherPerson.person === byEmail)?.status ?? 'new'
+    : (job) => job.status
+
   const passesSource = (job) => filters.sources.length === 0 || filters.sources.includes(job.source)
-  const passesStatus = (job) => filters.statuses.length === 0 || filters.statuses.includes(job.status)
+  const passesStatus = (job) => {
+    if (filters.statuses.length > 0) return filters.statuses.includes(getStatus(job))
+    return !isLookingAtSomeoneElse || getStatus(job) !== 'new'
+  }
 
   const visibleJobs = jobsInTab.filter((job) => passesSource(job) && passesStatus(job))
 
   const sourceCounts = countBy(jobsInTab.filter(passesStatus), (job) => job.source, SOURCES)
-  const statusCounts = countBy(jobsInTab.filter(passesSource), (job) => job.status, STATUSES)
+  const statusCounts = countBy(jobsInTab.filter(passesSource), getStatus, STATUSES)
 
   return {
     visibleJobs,

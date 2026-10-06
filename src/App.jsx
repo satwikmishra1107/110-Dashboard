@@ -12,7 +12,7 @@ import { useJobData } from './hooks/useJobData'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useTheme } from './hooks/useTheme'
 import { useUrlFilters } from './hooks/useUrlFilters'
-import { SOURCE_LABELS, STATUS_DETAILS, TIME_RANGES } from './lib/constants'
+import { SOURCE_LABELS, STATUS_DETAILS, TIME_RANGES, findPersonBySlug, getPersonName } from './lib/constants'
 import { prepareJobsForDisplay, countSummary, filterJobs } from './lib/jobFilters'
 import { summarizeScraperHealth } from './lib/scraperHealth'
 
@@ -71,7 +71,7 @@ function ShortcutList() {
 }
 
 export default function App() {
-  const { jobs, jobTracking, runs, hiddenTitles, isFirstLoad, isRefreshing, loadError, reload, updateJob, toggleHiddenTitle } =
+  const { currentUserEmail, jobs, jobTracking, runs, hiddenTitles, isFirstLoad, isRefreshing, loadError, reload, updateJob, toggleHiddenTitle } =
     useJobData()
   const { filters, updateFilters, clearFilters, activeFilterCount } = useUrlFilters()
   const { theme, cycleTheme } = useTheme()
@@ -91,9 +91,14 @@ export default function App() {
   const summary = useMemo(() => (isFirstLoad ? null : countSummary(jobsWithStatus)), [jobsWithStatus, isFirstLoad])
   const health = useMemo(() => summarizeScraperHealth(runs, jobsWithStatus, now), [runs, jobsWithStatus, now])
   const { visibleJobs, filterCounts } = useMemo(
-    () => filterJobs(jobsWithStatus, filters),
-    [jobsWithStatus, filters],
+    () => filterJobs(jobsWithStatus, filters, currentUserEmail),
+    [jobsWithStatus, filters, currentUserEmail],
   )
+
+  // ?by=<your own name> is the same as no ?by= — drop it so "Mine" shows as picked
+  useEffect(() => {
+    if (filters.by && currentUserEmail && findPersonBySlug(filters.by) === currentUserEmail) updateFilters({ by: null })
+  }, [filters.by, currentUserEmail, updateFilters])
 
   const isJobTab = filters.tab !== 'health'
   const selectedIndex = visibleJobs.findIndex((job) => job.key === selectedJobKey)
@@ -142,6 +147,7 @@ export default function App() {
     updateFilters((current) => ({ [listName]: current[listName].filter((item) => item !== value) }))
 
   const activeFilterChips = [
+    ...(filters.by ? [{ id: 'by', label: `${getPersonName(findPersonBySlug(filters.by))}'s jobs`, onRemove: () => updateFilters({ by: null }) }] : []),
     ...filters.statuses.map((status) => ({ id: `status-${status}`, label: STATUS_DETAILS[status].label, onRemove: () => removeFromList('statuses', status) })),
     ...filters.sources.map((source) => ({ id: `source-${source}`, label: SOURCE_LABELS[source], onRemove: () => removeFromList('sources', source) })),
   ]
@@ -196,7 +202,7 @@ export default function App() {
   }
 
   const filterPanel = (
-    <FilterPanel filters={filters} updateFilters={updateFilters} filterCounts={filterCounts} />
+    <FilterPanel filters={filters} updateFilters={updateFilters} filterCounts={filterCounts} currentUserEmail={currentUserEmail} />
   )
   const searchBox = (
     <SearchBox value={filters.search} onChange={(searchText) => updateFilters({ search: searchText })} inputRef={searchInputRef} />

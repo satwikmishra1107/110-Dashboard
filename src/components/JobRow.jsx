@@ -107,7 +107,7 @@ function HideTitleButton({ isTitleHidden, onClick, className = '' }) {
 
 /**
  * Under the title: how long ago YOU asked for a referral (amber after 12h),
- * and the other person's status — shown only, never editable here.
+ * and everyone else's status as a small initial badge colored by status (hover for name + when) — shown only, never editable here.
  */
 function PeopleStatusLine({ job, now }) {
   const otherPeopleWithStatus = job.otherPeople.filter((otherPerson) => otherPerson.status !== 'new')
@@ -127,19 +127,25 @@ function PeopleStatusLine({ job, now }) {
           {isReferralOverdue && ' · follow up?'}
         </span>
       )}
-      {otherPeopleWithStatus.map((otherPerson) => {
-        const statusDetails = STATUS_DETAILS[otherPerson.status] ?? STATUS_DETAILS.new
-        return (
-          <span
-            key={otherPerson.person}
-            title={otherPerson.statusChangedAt ? `Changed ${formatFullDateTime(otherPerson.statusChangedAt)}` : undefined}
-            className="inline-flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400"
-          >
-            <span className={`size-2 rounded-full ${statusDetails.dotClass}`} aria-hidden />
-            {getPersonName(otherPerson.person)}: {statusDetails.label}
-          </span>
-        )
-      })}
+      {otherPeopleWithStatus.length > 0 && (
+        <span className="inline-flex items-center gap-1">
+          {otherPeopleWithStatus.map((otherPerson) => {
+            const statusDetails = STATUS_DETAILS[otherPerson.status] ?? STATUS_DETAILS.new
+            const personName = getPersonName(otherPerson.person)
+            const statusText = `${personName}: ${statusDetails.label}`
+            return (
+              <span
+                key={otherPerson.person}
+                title={otherPerson.statusChangedAt ? `${statusText} · ${formatFullDateTime(otherPerson.statusChangedAt)}` : statusText}
+                aria-label={statusText}
+                className={`inline-flex size-[18px] items-center justify-center rounded-full text-[10px] font-semibold ${statusDetails.badgeClass}`}
+              >
+                {personName.charAt(0).toUpperCase()}
+              </span>
+            )
+          })}
+        </span>
+      )}
     </div>
   )
 }

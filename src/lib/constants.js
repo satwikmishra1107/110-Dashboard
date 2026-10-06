@@ -11,11 +11,12 @@ export const SOURCE_LABELS = {
 
 export const STATUSES = ['new', 'interested', 'referral_requested', 'applied']
 
+// badgeClass colors the other people's initial badges on a job row (dark text on amber, white on the rest, for contrast)
 export const STATUS_DETAILS = {
-  new: { label: 'New', dotClass: 'bg-zinc-300 dark:bg-zinc-600' },
-  interested: { label: 'Interested', dotClass: 'bg-amber-400' },
-  referral_requested: { label: 'Referral requested', dotClass: 'bg-sky-500' },
-  applied: { label: 'Applied', dotClass: 'bg-emerald-500' },
+  new: { label: 'New', dotClass: 'bg-zinc-300 dark:bg-zinc-600', badgeClass: 'bg-zinc-300 text-zinc-700 dark:bg-zinc-600 dark:text-zinc-100' },
+  interested: { label: 'Interested', dotClass: 'bg-amber-400', badgeClass: 'bg-amber-400 text-amber-950' },
+  referral_requested: { label: 'Referral requested', dotClass: 'bg-sky-500', badgeClass: 'bg-sky-500 text-white' },
+  applied: { label: 'Applied', dotClass: 'bg-emerald-500', badgeClass: 'bg-emerald-500 text-white' },
 }
 
 export const TIME_RANGES = [
@@ -28,10 +29,21 @@ export const TIME_RANGES = [
 export const PEOPLE = {
   'satwikmishra1107@gmail.com': 'Satwik',
   'nandushukla1204@gmail.com': 'Deepak',
+  'jagmohandixit686@gmail.com':'Jagmohan'
 }
 
 export function getPersonName(email) {
   return PEOPLE[email] ?? email
+}
+
+/** How a person appears in the URL: 'nandushukla1204@gmail.com' → 'deepak' (for ?by=deepak) */
+export function getPersonSlug(email) {
+  return getPersonName(email).toLowerCase()
+}
+
+/** 'deepak' → 'nandushukla1204@gmail.com', or null if nobody has that name */
+export function findPersonBySlug(slug) {
+  return Object.keys(PEOPLE).find((email) => getPersonSlug(email) === slug) ?? null
 }
 
 export const REFERRAL_FOLLOW_UP_MS = 12 * 60 * 60 * 1000 // after 12h, a referral request is due for a follow-up
