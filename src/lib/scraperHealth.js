@@ -115,6 +115,25 @@ function summarizeFailures(runSummaries) {
   return { repeatFailures, oneOffFailures, companiesChecked }
 }
 
+/**
+ * For the header: the newest run across all sources, and which sources haven't run in over 2 hours.
+ * latestRuns = rows from fetchLatestRuns(), newest first.
+ */
+export function summarizeLatestRuns(latestRuns, now) {
+  const latestRunTimeBySource = new Map()
+  for (const run of latestRuns) {
+    if (!latestRunTimeBySource.has(run.source)) latestRunTimeBySource.set(run.source, new Date(run.scraped_at).getTime())
+  }
+  const runTimes = [...latestRunTimeBySource.values()]
+  return {
+    lastScrapedAt: runTimes.length > 0 ? Math.max(...runTimes) : null,
+    staleSources: SOURCES.filter((source) => {
+      const latestRunTime = latestRunTimeBySource.get(source)
+      return latestRunTime === undefined || now - latestRunTime > STALE_SOURCE_MS
+    }),
+  }
+}
+
 /** A job that made it past the auto-hide words and your "always hide" titles. */
 const passedFilters = (job) => !job.autoHideReason && !job.isTitleHidden
 

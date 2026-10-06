@@ -28,7 +28,16 @@ async function fetchRunRows(tableName, columns, since) {
 }
 
 /**
- * Scraper runs, in two sizes. Each scraper adds one row to the `runs` table when it finishes;
+ * Just when each scraper last finished, for the header ("15 min ago", amber dot if a source is stale).
+ * Last 24 hours, no reports, so it's a few KB: [{ id, run_id, source: 'lever', scraped_at: '…' }, …]
+ */
+export async function fetchLatestRuns() {
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  return fetchRunRows('runs', 'id, run_id, source, scraped_at', oneDayAgo)
+}
+
+/**
+ * Scraper runs for the Scraper health tab (loaded only when it's opened), in two sizes. Each scraper adds one row to the `runs` table when it finishes;
  * all scrapers in one GitHub workflow run share the same run_id (local runs have none and are skipped).
  *
  * runSummaries — last 7 days, from the run_summaries view: each row's report already added up in

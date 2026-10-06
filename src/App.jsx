@@ -9,12 +9,13 @@ import NotepadPanel from './components/NotepadPanel'
 import { useCurrentTime } from './hooks/useCurrentTime'
 import { useIsDesktop } from './hooks/useIsDesktop'
 import { useJobData } from './hooks/useJobData'
+import { useScraperRuns } from './hooks/useScraperRuns'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useTheme } from './hooks/useTheme'
 import { useUrlFilters } from './hooks/useUrlFilters'
 import { SOURCE_LABELS, STATUS_DETAILS, TIME_RANGES, findPersonBySlug, getPersonName } from './lib/constants'
 import { prepareJobsForDisplay, countSummary, filterJobs } from './lib/jobFilters'
-import { summarizeScraperHealth } from './lib/scraperHealth'
+import { summarizeLatestRuns, summarizeScraperHealth } from './lib/scraperHealth'
 
 const SHORTCUTS = [
   ['/', 'Search'],
@@ -71,9 +72,23 @@ function ShortcutList() {
 }
 
 export default function App() {
-  const { currentUserEmail, jobs, jobTracking, runs, hiddenTitles, isFirstLoad, isRefreshing, loadError, reload, updateJob, toggleHiddenTitle } =
-    useJobData()
+  const {
+    currentUserEmail,
+    jobs,
+    isOlderJobsLoaded,
+    jobTracking,
+    latestRuns,
+    hiddenTitles,
+    isFirstLoad,
+    isRefreshing,
+    loadError,
+    reload: reloadJobs,
+    updateJob,
+    toggleHiddenTitle,
+  } = useJobData()
   const { filters, updateFilters, clearFilters, activeFilterCount } = useUrlFilters()
+  // Scraper runs load only when the Scraper health tab is opened
+  const { runs, isLoadingRuns, runsError, reloadRuns } = useScraperRuns(filters.tab === 'health')
   const { theme, cycleTheme } = useTheme()
   const now = useCurrentTime()
   const isDesktop = useIsDesktop()
@@ -89,7 +104,8 @@ export default function App() {
     [jobs, jobTracking, hiddenTitles, now],
   )
   const summary = useMemo(() => (isFirstLoad ? null : countSummary(jobsWithStatus)), [jobsWithStatus, isFirstLoad])
-  const health = useMemo(() => summarizeScraperHealth(runs, jobsWithStatus, now), [runs, jobsWithStatus, now])
+  const latestRunsSummary = useMemo(() => summarizeLatestRuns(latestRuns, now), [latestRuns, now])
+  const health = useMemo(() => (runs ? summarizeScraperHealth(runs, jobsWithStatus, now) : null), [runs, jobsWithStatus, now])
   const { visibleJobs, filterCounts } = useMemo(
     () => filterJobs(jobsWithStatus, filters, currentUserEmail),
     [jobsWithStatus, filters, currentUserEmail],
@@ -101,6 +117,12 @@ export default function App() {
   }, [filters.by, currentUserEmail, updateFilters])
 
   const isJobTab = filters.tab !== 'health'
+
+  // The Refresh button reloads the jobs, and the runs too when you're on Scraper health
+  const reload = () => {
+    reloadJobs()
+    if (!isJobTab) reloadRuns()
+  }
   const selectedIndex = visibleJobs.findIndex((job) => job.key === selectedJobKey)
   const selectedJob = visibleJobs[selectedIndex] ?? null
 
@@ -163,7 +185,7 @@ export default function App() {
 
   // ---- Main list area: loading, error, empty, or the jobs ----
   let listContent
-  if (isFirstLoad) {
+  if (isFirstLoad || (filters.tab === 'archive' && !isOlderJobsLoaded && !loadError)) {
     listContent = <LoadingSkeleton />
   } else if (loadError && jobs.length === 0) {
     listContent = (
@@ -214,10 +236,10 @@ export default function App() {
         activeTab={filters.tab}
         onChangeTab={changeTab}
         summary={summary}
-        lastScrapedAt={health.lastScrapedAt}
+        lastScrapedAt={latestRunsSummary.lastScrapedAt}
         now={now}
-        hasStaleSource={!isFirstLoad && health.staleSources.length > 0}
-        isRefreshing={isRefreshing}
+        hasStaleSource={latestRuns.length > 0 && latestRunsSummary.staleSources.length > 0}
+        isRefreshing={isRefreshing || isLoadingRuns}
         onRefresh={reload}
         theme={theme}
         onCycleTheme={cycleTheme}
@@ -238,7 +260,13 @@ export default function App() {
 
       {!isJobTab ? (
         <main className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-          {isFirstLoad ? <LoadingSkeleton /> : <HealthView health={health} now={now} />}
+          {health && !isFirstLoad ? (
+            <HealthView health={health} now={now} />
+          ) : runsError ? (
+            <EmptyState title="Couldn’t load scraper runs" description={runsError} action={<OutlineButton onClick={reloadRuns}>Try again</OutlineButton>} />
+          ) : (
+            <LoadingSkeleton />
+          )}
         </main>
       ) : (
         <div className="mx-auto w-full max-w-[1600px] lg:flex lg:min-h-0 lg:flex-1">
