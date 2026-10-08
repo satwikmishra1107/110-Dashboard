@@ -38,7 +38,7 @@ function CheckboxRow({ label, count, isChecked, onToggle, dotClass }) {
   )
 }
 
-export function SearchBox({ value, onChange, inputRef }) {
+export function SearchBox({ value, onChange, inputRef, placeholder = 'Company, title or location' }) {
   return (
     <div className="relative">
       <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-zinc-400" />
@@ -47,8 +47,8 @@ export function SearchBox({ value, onChange, inputRef }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => event.key === 'Escape' && event.currentTarget.blur()}
-        placeholder="Company, title or location"
-        aria-label="Search company, title or location"
+        placeholder={placeholder}
+        aria-label={`Search ${placeholder.toLowerCase()}`}
         className="h-10 w-full rounded-md border border-zinc-200 bg-surface pr-8 pl-8 text-[13px] placeholder:text-zinc-400 dark:border-zinc-800"
       />
       {value ? (

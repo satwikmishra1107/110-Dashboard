@@ -23,7 +23,7 @@ function getAutoHideReason(title) {
 
 /**
  * Combine each job with its saved status, and work out values the UI needs:
- * key, status, note, statusChangedAt, otherPeople, isTitleHidden, isArchived, daysAgo and badge.
+ * key, status, note, statusChangedAt, otherPeople, isTitleHidden, isArchived, daysAgo, isFromLast24Hours and badge.
  */
 export function prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now) {
   return jobs.map((job) => {
@@ -34,9 +34,11 @@ export function prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now) {
     const isTitleHidden = hiddenTitles.has(normalizeTitle(job.title))
     const autoHideReason = getAutoHideReason(job.title)
 
+    const isFromLast24Hours = now - boardDate < NEW_BADGE_MS
+
     let badge = null
     if (job.is_update) badge = 'updated'
-    else if (now - boardDate < NEW_BADGE_MS) badge = 'new'
+    else if (isFromLast24Hours) badge = 'new'
 
     return {
       ...job,
@@ -49,6 +51,7 @@ export function prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now) {
       autoHideReason, // the word that keeps it off the Board, e.g. 'senior', or null
       isArchived: isTitleHidden || Boolean(autoHideReason) || (savedTracking?.archived ?? false), // hidden title, auto-hidden, or you archived this job
       daysAgo: daysAgo(boardDate, now),
+      isFromLast24Hours, // found or reposted in the last 24 hours: the "Today" filter and header count
       badge,
     }
   })
@@ -58,7 +61,7 @@ export function prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now) {
 export function countSummary(jobs) {
   const summary = { newToday: 0, thisWeek: 0, referralRequested: 0, applied: 0 }
   for (const job of jobs) {
-    if (job.daysAgo === 0 && !job.isArchived) summary.newToday += 1
+    if (job.isFromLast24Hours && !job.isArchived) summary.newToday += 1
     if (job.daysAgo < BOARD_DAYS && !job.isArchived) summary.thisWeek += 1
     if (job.status === 'referral_requested') summary.referralRequested += 1
     if (job.status === 'applied') summary.applied += 1
@@ -72,8 +75,11 @@ function belongsToCurrentTab(job, filters) {
     if (job.autoHideReason) return job.daysAgo === 0
     return job.isArchived || (job.daysAgo >= BOARD_DAYS && job.daysAgo <= ARCHIVE_MAX_DAYS)
   }
+  if (job.isArchived) return false
+  // Today rolls: the last 24 hours. 3 / 7 days are whole calendar days.
+  if (filters.range === 'today') return job.isFromLast24Hours
   const selectedRange = TIME_RANGES.find((range) => range.id === filters.range)
-  return !job.isArchived && job.daysAgo < selectedRange.days
+  return job.daysAgo < selectedRange.days
 }
 
 function matchesSearch(job, searchWords) {

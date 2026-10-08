@@ -5,6 +5,7 @@ const TABS = [
   { id: 'board', label: 'Board' },
   { id: 'archive', label: 'Archive' },
   { id: 'health', label: 'Scraper health' },
+  { id: 'companies', label: 'Companies' },
 ]
 
 const THEME_BUTTONS = {
@@ -111,7 +112,7 @@ export default function Header({
       </div>
 
       <div className="mx-auto grid max-w-[1600px] grid-cols-4 gap-4 border-t border-zinc-100 px-4 py-3 sm:flex sm:gap-14 lg:px-6 dark:border-zinc-900">
-        <SummaryNumber label="New today" shortLabel="Today" value={summary?.newToday} />
+        <SummaryNumber label="Last 24 hours" shortLabel="Today" value={summary?.newToday} />
         <SummaryNumber label="This week" shortLabel="Week" value={summary?.thisWeek} />
         <SummaryNumber label="Referral requested" shortLabel="Referral" value={summary?.referralRequested} />
         <SummaryNumber label="Applied" shortLabel="Applied" value={summary?.applied} />

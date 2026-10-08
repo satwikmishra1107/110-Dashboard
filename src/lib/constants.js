@@ -20,7 +20,7 @@ export const STATUS_DETAILS = {
 }
 
 export const TIME_RANGES = [
-  { id: 'today', label: 'Today', days: 1 },
+  { id: 'today', label: 'Today', days: 1 }, // Today = the last 24 hours (rolling), not since midnight
   { id: '3d', label: '3 days', days: 3 },
   { id: '7d', label: '7 days', days: 7 },
 ]

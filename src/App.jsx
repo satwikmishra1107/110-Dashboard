@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import BottomSheet from './components/BottomSheet'
+import CompaniesView from './components/CompaniesView'
 import FilterPanel, { SearchBox } from './components/FilterPanel'
 import Header from './components/Header'
 import HealthView from './components/HealthView'
@@ -15,6 +16,7 @@ import { useTheme } from './hooks/useTheme'
 import { useUrlFilters } from './hooks/useUrlFilters'
 import { SOURCE_LABELS, STATUS_DETAILS, TIME_RANGES, findPersonBySlug, getPersonName } from './lib/constants'
 import { prepareJobsForDisplay, countSummary, filterJobs } from './lib/jobFilters'
+import { summarizeCompanies } from './lib/companyStats'
 import { summarizeLatestRuns, summarizeScraperHealth } from './lib/scraperHealth'
 
 const SHORTCUTS = [
@@ -87,8 +89,8 @@ export default function App() {
     toggleHiddenTitle,
   } = useJobData()
   const { filters, updateFilters, clearFilters, activeFilterCount } = useUrlFilters()
-  // Scraper runs load only when the Scraper health tab is opened
-  const { runs, isLoadingRuns, runsError, reloadRuns } = useScraperRuns(filters.tab === 'health')
+  // Scraper runs load only when Scraper health or Companies is opened
+  const { runs, isLoadingRuns, runsError, reloadRuns } = useScraperRuns(filters.tab === 'health' || filters.tab === 'companies')
   const { theme, cycleTheme } = useTheme()
   const now = useCurrentTime()
   const isDesktop = useIsDesktop()
@@ -106,6 +108,11 @@ export default function App() {
   const summary = useMemo(() => (isFirstLoad ? null : countSummary(jobsWithStatus)), [jobsWithStatus, isFirstLoad])
   const latestRunsSummary = useMemo(() => summarizeLatestRuns(latestRuns, now), [latestRuns, now])
   const health = useMemo(() => (runs ? summarizeScraperHealth(runs, jobsWithStatus, now) : null), [runs, jobsWithStatus, now])
+  // Needs all 30 days of jobs, so it waits for the older ones too
+  const companies = useMemo(
+    () => (filters.tab === 'companies' && runs && isOlderJobsLoaded ? summarizeCompanies(runs, jobsWithStatus, now) : null),
+    [filters.tab, runs, isOlderJobsLoaded, jobsWithStatus, now],
+  )
   const { visibleJobs, filterCounts } = useMemo(
     () => filterJobs(jobsWithStatus, filters, currentUserEmail),
     [jobsWithStatus, filters, currentUserEmail],
@@ -116,9 +123,9 @@ export default function App() {
     if (filters.by && currentUserEmail && findPersonBySlug(filters.by) === currentUserEmail) updateFilters({ by: null })
   }, [filters.by, currentUserEmail, updateFilters])
 
-  const isJobTab = filters.tab !== 'health'
+  const isJobTab = filters.tab === 'board' || filters.tab === 'archive'
 
-  // The Refresh button reloads the jobs, and the runs too when you're on Scraper health
+  // The Refresh button reloads the jobs, and the runs too when you're on Scraper health or Companies
   const reload = () => {
     reloadJobs()
     if (!isJobTab) reloadRuns()
@@ -180,7 +187,7 @@ export default function App() {
     filters.tab === 'archive'
       ? 'archived by you, 8–30 days old, or auto-hidden today'
       : filters.range === 'today'
-        ? 'found today'
+        ? 'found in the last 24 hours'
         : `found in the last ${rangeLabel}`
 
   // ---- Main list area: loading, error, empty, or the jobs ----
@@ -203,7 +210,7 @@ export default function App() {
   } else if (visibleJobs.length === 0) {
     listContent = (
       <EmptyState
-        title={filters.range === 'today' ? 'Nothing new today yet' : `Nothing new in the last ${rangeLabel}`}
+        title={filters.range === 'today' ? 'Nothing new in the last 24 hours' : `Nothing new in the last ${rangeLabel}`}
         description="The scraper runs hourly — new openings will appear here."
         action={filters.range !== '7d' && <OutlineButton onClick={() => updateFilters({ range: '7d' })}>Show last 7 days</OutlineButton>}
       />
@@ -260,7 +267,9 @@ export default function App() {
 
       {!isJobTab ? (
         <main className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-          {health && !isFirstLoad ? (
+          {filters.tab === 'companies' && companies && !isFirstLoad ? (
+            <CompaniesView companies={companies} now={now} />
+          ) : filters.tab === 'health' && health && !isFirstLoad ? (
             <HealthView health={health} now={now} />
           ) : runsError ? (
             <EmptyState title="Couldn’t load scraper runs" description={runsError} action={<OutlineButton onClick={reloadRuns}>Try again</OutlineButton>} />

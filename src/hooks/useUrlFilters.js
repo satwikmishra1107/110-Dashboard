@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { SOURCES, STATUSES, TIME_RANGES, findPersonBySlug } from '../lib/constants'
 
-const TABS = ['board', 'archive', 'health']
+const TABS = ['board', 'archive', 'health', 'companies']
 
 const DEFAULT_FILTERS = {
   tab: 'board',
