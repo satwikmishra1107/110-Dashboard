@@ -7,9 +7,11 @@ import HealthView from './components/HealthView'
 import { CloseIcon, FilterIcon } from './components/Icons'
 import JobList, { EmptyState, LoadingSkeleton } from './components/JobList'
 import NotepadPanel from './components/NotepadPanel'
+import ResumePanel from './components/ResumePanel'
 import { useCurrentTime } from './hooks/useCurrentTime'
 import { useIsDesktop } from './hooks/useIsDesktop'
 import { useJobData } from './hooks/useJobData'
+import { useResumeMatching } from './hooks/useResumeMatching'
 import { useScraperRuns } from './hooks/useScraperRuns'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useTheme } from './hooks/useTheme'
@@ -81,6 +83,7 @@ export default function App() {
     jobTracking,
     latestRuns,
     hiddenTitles,
+    jobScores,
     isFirstLoad,
     isRefreshing,
     loadError,
@@ -88,6 +91,8 @@ export default function App() {
     updateJob,
     toggleHiddenTitle,
   } = useJobData()
+  // Re-scoring deletes old scores, so the jobs (and their scores) reload after it
+  const resumeMatching = useResumeMatching(currentUserEmail, { onScoresChanged: reloadJobs })
   const { filters, updateFilters, clearFilters, activeFilterCount } = useUrlFilters()
   // Scraper runs load only when Scraper health or Companies is opened
   const { runs, isLoadingRuns, runsError, reloadRuns } = useScraperRuns(filters.tab === 'health' || filters.tab === 'companies')
@@ -98,12 +103,20 @@ export default function App() {
   const [selectedJobKey, setSelectedJobKey] = useState(null)
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false)
   const [isNotepadOpen, setIsNotepadOpen] = useState(false)
+  const [isResumePanelOpen, setIsResumePanelOpen] = useState(false)
   const searchInputRef = useRef(null)
+
+  const { latestResumeVersion, weakCutoff } = resumeMatching
 
   // ---- Derived data: raw data + filters → what the screen shows ----
   const jobsWithStatus = useMemo(
-    () => prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now),
-    [jobs, jobTracking, hiddenTitles, now],
+    () => prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now, jobScores, latestResumeVersion),
+    [jobs, jobTracking, hiddenTitles, now, jobScores, latestResumeVersion],
+  )
+  // Scores made with an older resume: the panel offers to redo them with the newest one
+  const outdatedScoreCount = useMemo(
+    () => (latestResumeVersion ? [...jobScores.values()].filter((jobScore) => jobScore.resumeVersion < latestResumeVersion).length : 0),
+    [jobScores, latestResumeVersion],
   )
   const summary = useMemo(() => (isFirstLoad ? null : countSummary(jobsWithStatus)), [jobsWithStatus, isFirstLoad])
   const latestRunsSummary = useMemo(() => summarizeLatestRuns(latestRuns, now), [latestRuns, now])
@@ -114,8 +127,8 @@ export default function App() {
     [filters.tab, runs, isOlderJobsLoaded, jobsWithStatus, now],
   )
   const { visibleJobs, filterCounts } = useMemo(
-    () => filterJobs(jobsWithStatus, filters, currentUserEmail),
-    [jobsWithStatus, filters, currentUserEmail],
+    () => filterJobs(jobsWithStatus, filters, currentUserEmail, weakCutoff),
+    [jobsWithStatus, filters, currentUserEmail, weakCutoff],
   )
 
   // ?by=<your own name> is the same as no ?by= — drop it so "Mine" shows as picked
@@ -171,6 +184,13 @@ export default function App() {
 
   const closeFilterSheet = useCallback(() => setIsFilterSheetOpen(false), [])
 
+  // From the filter panel (on phones, inside the bottom sheet): close the sheet and show the panel under the header
+  const openResumePanel = () => {
+    setIsFilterSheetOpen(false)
+    setIsResumePanelOpen(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   // ---- Chips above the list, one per active filter ----
   const removeFromList = (listName, value) =>
     updateFilters((current) => ({ [listName]: current[listName].filter((item) => item !== value) }))
@@ -180,6 +200,7 @@ export default function App() {
     ...filters.statuses.map((status) => ({ id: `status-${status}`, label: STATUS_DETAILS[status].label, onRemove: () => removeFromList('statuses', status) })),
     ...filters.sources.map((source) => ({ id: `source-${source}`, label: SOURCE_LABELS[source], onRemove: () => removeFromList('sources', source) })),
   ]
+  if (filters.hideWeak) activeFilterChips.push({ id: 'weak', label: `Match ${weakCutoff}+`, onRemove: () => updateFilters({ hideWeak: false }) })
   if (filters.search) activeFilterChips.push({ id: 'search', label: `“${filters.search}”`, onRemove: () => updateFilters({ search: '' }) })
 
   const rangeLabel = TIME_RANGES.find((timeRange) => timeRange.id === filters.range).label.toLowerCase()
@@ -231,7 +252,18 @@ export default function App() {
   }
 
   const filterPanel = (
-    <FilterPanel filters={filters} updateFilters={updateFilters} filterCounts={filterCounts} currentUserEmail={currentUserEmail} />
+    <FilterPanel
+      filters={filters}
+      updateFilters={updateFilters}
+      filterCounts={filterCounts}
+      currentUserEmail={currentUserEmail}
+      resumeMatch={{
+        isLoaded: resumeMatching.profile !== null,
+        hasResume: resumeMatching.hasResume,
+        weakCutoff,
+        onOpenSetup: openResumePanel,
+      }}
+    />
   )
   const searchBox = (
     <SearchBox value={filters.search} onChange={(searchText) => updateFilters({ search: searchText })} inputRef={searchInputRef} />
@@ -252,9 +284,18 @@ export default function App() {
         onCycleTheme={cycleTheme}
         isNotepadOpen={isNotepadOpen}
         onToggleNotepad={() => setIsNotepadOpen((isOpen) => !isOpen)}
+        isResumePanelOpen={isResumePanelOpen}
+        onToggleResumePanel={() => setIsResumePanelOpen((isOpen) => !isOpen)}
       />
 
       <NotepadPanel isOpen={isNotepadOpen} onClose={() => setIsNotepadOpen(false)} />
+      <ResumePanel
+        isOpen={isResumePanelOpen}
+        onClose={() => setIsResumePanelOpen(false)}
+        resumeMatching={resumeMatching}
+        outdatedScoreCount={outdatedScoreCount}
+        now={now}
+      />
 
       {loadError && jobs.length > 0 && (
         <div role="alert" className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-[12px] text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">

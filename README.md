@@ -29,6 +29,8 @@ There's no custom backend. The dashboard talks to Supabase straight from the bro
 
 **Archive & hidden titles** — shared between both users. Archiving moves a job off the board but keeps it viewable in the Archive tab for 30 days. "Always hide this title" removes a title everywhere (meant for roles like talent acquisition or management) and the scraper also stops sending Telegram alerts for it.
 
+**Resume match** — each person uploads their resume (PDF) and their own free Gemini API key once, from the "Resume match" panel. Every hour, after the scrapers, the scraper fetches the full description of each Board job (Workday, Greenhouse, Lever, Ashby and SmartRecruiters for now) and scores it 0–100 against that person's newest resume, with their key. Each job shows the score, a one-line reason, and (on click) the skills matched and missing. Sort by best match, or hide matches below your own cutoff. Uploading a new resume makes a new version; older scores show which version they used and can be re-scored.
+
 **Scraper health** — summarises the last 24 hours of automated runs: which sources ran, which are stale (no run in 2+ hours), which companies failed and why, and how many new and updated jobs each run found. Click a run to drill down to sources and individual companies.
 
 **Quality of life**
@@ -80,6 +82,11 @@ The dashboard reads and writes these Supabase tables:
 | `job_tracking` | dashboard | Shared archive flag per job |
 | `personal_tracking` | dashboard | `status, note, status_changed_at` per job **per person** |
 | `hidden_titles` | dashboard | Normalised (lowercased, whitespace-collapsed) titles to hide |
+| `resumes` | dashboard | Every resume each person uploaded: `person, version, file_name, resume_text` |
+| `resume_settings` | both | Per person: `gemini_api_key, weak_cutoff`; the scraper sets `key_error, last_scored_at` |
+| `job_scores` | scrapers | Per job per person: `score, reason, skills_matched, skills_missing, resume_version` |
+
+`jobs` also has `description` and `description_checked_at`, filled by the scraper for Board jobs. The resume-matching tables and columns are created by [supabase/resume-matching.sql](supabase/resume-matching.sql).
 
 Retention is handled inside Supabase by scheduled jobs: jobs are deleted after 30 days and runs rows after 7 days, which keeps the database within the free tier.
 

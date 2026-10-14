@@ -100,7 +100,50 @@ function SegmentedControl({ label, options, value, onChange }) {
   )
 }
 
-export default function FilterPanel({ filters, updateFilters, filterCounts, currentUserEmail }) {
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'match', label: 'Best match' },
+]
+
+/** Before setup: the invitation to set it up. After: sort by match and hide weak matches. */
+function ResumeMatchSection({ filters, updateFilters, weakMatchCount, resumeMatch }) {
+  if (!resumeMatch.hasResume) {
+    return (
+      <FilterSection title="Resume match">
+        <button
+          type="button"
+          onClick={resumeMatch.onOpenSetup}
+          className="w-full rounded-md border border-dashed border-zinc-300 px-3 py-2.5 text-left transition-colors hover:border-accent-400 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+        >
+          <span className="block text-[13px] font-medium text-accent-600 dark:text-accent-400">Want filtering based on your resume?</span>
+          <span className="mt-0.5 block text-[12px] text-zinc-500 dark:text-zinc-400">
+            Upload it once and every Board job gets a match score.
+          </span>
+        </button>
+      </FilterSection>
+    )
+  }
+
+  return (
+    <FilterSection title="Resume match">
+      <SegmentedControl label="Sort by" options={SORT_OPTIONS} value={filters.sort} onChange={(sort) => updateFilters({ sort })} />
+      <div className="mt-2">
+        <CheckboxRow
+          label={`Hide weak matches (below ${resumeMatch.weakCutoff})`}
+          count={weakMatchCount}
+          isChecked={filters.hideWeak}
+          onToggle={() => updateFilters((current) => ({ hideWeak: !current.hideWeak }))}
+        />
+      </div>
+      <button type="button" onClick={resumeMatch.onOpenSetup} className="mt-1 px-2 text-[12px] text-accent-600 hover:underline dark:text-accent-400">
+        Resume, key and cutoff
+      </button>
+    </FilterSection>
+  )
+}
+
+/** resumeMatch: { isLoaded, hasResume, weakCutoff, onOpenSetup } */
+export default function FilterPanel({ filters, updateFilters, filterCounts, currentUserEmail, resumeMatch }) {
   // "Mine" (no ?by=) + everyone else. by = null also covers ?by=<your own name>.
   const otherEmails = Object.keys(PEOPLE).filter((email) => email !== currentUserEmail)
   const personOptions = [
@@ -119,6 +162,15 @@ export default function FilterPanel({ filters, updateFilters, filterCounts, curr
             onChange={(range) => updateFilters({ range })}
           />
         </FilterSection>
+      )}
+
+      {resumeMatch.isLoaded && (
+        <ResumeMatchSection
+          filters={filters}
+          updateFilters={updateFilters}
+          weakMatchCount={filterCounts.weakMatches}
+          resumeMatch={resumeMatch}
+        />
       )}
 
       {/* {personOptions.length > 1 && (

@@ -1,5 +1,5 @@
 import { formatFullDateTime, formatTimeAgo } from '../lib/time'
-import { MonitorIcon, MoonIcon, NotebookIcon, RefreshIcon, SunIcon } from './Icons'
+import { MonitorIcon, MoonIcon, NotebookIcon, RefreshIcon, ResumeIcon, SunIcon } from './Icons'
 
 const TABS = [
   { id: 'board', label: 'Board' },
@@ -42,6 +42,8 @@ export default function Header({
   onCycleTheme,
   isNotepadOpen,
   onToggleNotepad,
+  isResumePanelOpen,
+  onToggleResumePanel,
 }) {
   const ThemeIcon = THEME_BUTTONS[theme].icon
 
@@ -81,6 +83,16 @@ export default function Header({
             className={`${iconButtonClass} ${isNotepadOpen ? 'bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-200' : ''}`}
           >
             <NotebookIcon />
+          </button>
+          <button
+            type="button"
+            onClick={onToggleResumePanel}
+            aria-label={isResumePanelOpen ? 'Close resume match' : 'Open resume match'}
+            aria-expanded={isResumePanelOpen}
+            title="Resume match"
+            className={`${iconButtonClass} ${isResumePanelOpen ? 'bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-200' : ''}`}
+          >
+            <ResumeIcon />
           </button>
           <button type="button" onClick={onCycleTheme} aria-label={THEME_BUTTONS[theme].label} title={THEME_BUTTONS[theme].label} className={iconButtonClass}>
             <ThemeIcon />

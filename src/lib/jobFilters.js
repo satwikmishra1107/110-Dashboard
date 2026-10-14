@@ -22,13 +22,14 @@ function getAutoHideReason(title) {
 }
 
 /**
- * Combine each job with its saved status, and work out values the UI needs:
- * key, status, note, statusChangedAt, otherPeople, isTitleHidden, isArchived, daysAgo, isFromLast24Hours and badge.
+ * Combine each job with its saved status and match score, and work out values the UI needs:
+ * key, status, note, statusChangedAt, otherPeople, isTitleHidden, isArchived, daysAgo, isFromLast24Hours, badge and match.
  */
-export function prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now) {
+export function prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now, jobScores, latestResumeVersion) {
   return jobs.map((job) => {
     const key = makeJobKey(job.company, job.job_id)
     const savedTracking = jobTracking.get(key)
+    const savedScore = jobScores.get(key)
     // Where the job sits on the board: when it was reposted, or else when it was first seen
     const boardDate = new Date(job.reposted_at ?? job.first_seen_at)
     const isTitleHidden = hiddenTitles.has(normalizeTitle(job.title))
@@ -53,6 +54,10 @@ export function prepareJobsForDisplay(jobs, jobTracking, hiddenTitles, now) {
       daysAgo: daysAgo(boardDate, now),
       isFromLast24Hours, // found or reposted in the last 24 hours: the "Today" filter and header count
       badge,
+      // Your resume match: { score, reason, skillsMatched, skillsMissing, resumeVersion, scoredAt, isFromOlderResume }, or null if not scored yet
+      match: savedScore
+        ? { ...savedScore, isFromOlderResume: Boolean(latestResumeVersion) && savedScore.resumeVersion < latestResumeVersion }
+        : null,
     }
   })
 }
@@ -102,11 +107,15 @@ function countBy(items, getValue, valuesToAlwaysInclude = []) {
  * - visibleJobs: what the list shows
  * - filterCounts: numbers next to each checkbox. Each group is counted with the
  *   OTHER filter applied, so a number tells you what ticking it would show.
+ *   weakMatches: how many jobs in the tab score below weakCutoff (what "Hide weak matches" hides)
  */
-export function filterJobs(jobs, filters, currentUserEmail) {
+export function filterJobs(jobs, filters, currentUserEmail, weakCutoff) {
   const searchWords = filters.search.toLowerCase().split(/\s+/).filter(Boolean)
 
-  const jobsInTab = jobs.filter((job) => belongsToCurrentTab(job, filters) && matchesSearch(job, searchWords))
+  const isWeakMatch = (job) => job.match !== null && job.match.score < weakCutoff
+  const jobsInTabBeforeHidingWeak = jobs.filter((job) => belongsToCurrentTab(job, filters) && matchesSearch(job, searchWords))
+  // Jobs that aren't scored yet always stay: no score isn't the same as a bad score
+  const jobsInTab = filters.hideWeak ? jobsInTabBeforeHidingWeak.filter((job) => !isWeakMatch(job)) : jobsInTabBeforeHidingWeak
 
   // ?by=deepak → the Status filter (and its counts) use Deepak's status instead of yours.
   // With no status ticked, it shows every job they've touched (anything but "New").
@@ -123,6 +132,8 @@ export function filterJobs(jobs, filters, currentUserEmail) {
   }
 
   const visibleJobs = jobsInTab.filter((job) => passesSource(job) && passesStatus(job))
+  // Best match first; jobs without a score go last. sort() keeps equal jobs in their newest-first order.
+  if (filters.sort === 'match') visibleJobs.sort((firstJob, secondJob) => (secondJob.match?.score ?? -1) - (firstJob.match?.score ?? -1))
 
   const sourceCounts = countBy(jobsInTab.filter(passesStatus), (job) => job.source, SOURCES)
   const statusCounts = countBy(jobsInTab.filter(passesSource), getStatus, STATUSES)
@@ -132,6 +143,7 @@ export function filterJobs(jobs, filters, currentUserEmail) {
     filterCounts: {
       sources: [...sourceCounts],
       statuses: [...statusCounts],
+      weakMatches: jobsInTabBeforeHidingWeak.filter((job) => passesSource(job) && passesStatus(job) && isWeakMatch(job)).length,
     },
   }
 }

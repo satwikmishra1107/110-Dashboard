@@ -150,9 +150,74 @@ function PeopleStatusLine({ job, now }) {
   )
 }
 
+/** Your resume-match score (0–100) next to the title. Click it for the skills behind it. */
+function MatchScore({ match, isExpanded, onToggle }) {
+  if (!match) return null
+  const olderResumeText = match.isFromOlderResume ? ` (scored with older resume v${match.resumeVersion})` : ''
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation() // don't also select the row
+        onToggle()
+      }}
+      aria-expanded={isExpanded}
+      aria-label={`Resume match ${match.score} out of 100${olderResumeText}. ${isExpanded ? 'Hide' : 'Show'} skills`}
+      title={`Resume match: ${match.score}/100${olderResumeText} · click for skills`}
+      className="inline-flex h-5 shrink-0 items-center rounded bg-accent-50 px-1.5 text-[11px] font-semibold text-accent-600 tabular-nums transition-colors hover:bg-accent-500 hover:text-white dark:bg-accent-950 dark:text-accent-400 dark:hover:text-white"
+    >
+      {match.score}
+      {match.isFromOlderResume && <span className="ml-1 font-normal opacity-70">v{match.resumeVersion}</span>}
+    </button>
+  )
+}
+
+function SkillList({ label, skills, chipClass }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <span className="w-14 shrink-0 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">{label}</span>
+      {skills.length === 0 ? (
+        <span className="text-[11px] text-zinc-400">—</span>
+      ) : (
+        skills.map((skill, skillIndex) => (
+          <span key={skillIndex} className={`rounded px-1.5 text-[11px] ${chipClass}`}>
+            {skill}
+          </span>
+        ))
+      )}
+    </div>
+  )
+}
+
+/** Under the title: the one-line reason for the score. Expanded: the matched and missing skills too. */
+function MatchDetails({ match, isExpanded, now }) {
+  if (!match) return null
+  return (
+    <div className="mt-1 text-[12px] text-zinc-500 dark:text-zinc-400">
+      {match.reason && (
+        <p className={isExpanded ? '' : 'truncate'} title={isExpanded ? undefined : match.reason}>
+          {match.reason}
+        </p>
+      )}
+      {isExpanded && (
+        <div className="mt-1.5 space-y-1">
+          <SkillList label="Matched" skills={match.skillsMatched} chipClass="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" />
+          <SkillList label="Missing" skills={match.skillsMissing} chipClass="bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300" />
+          <p className="text-[11px] text-zinc-400 dark:text-zinc-500" title={formatFullDateTime(match.scoredAt)}>
+            Scored with resume v{match.resumeVersion}
+            {match.isFromOlderResume && ' (an older version)'} · {formatTimeAgo(match.scoredAt, now)}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** One job: a dense row on desktop, a card on phones. */
 function JobRow({ job, now, layout, isSelected, isMuted, onSelect, onUpdateJob, onToggleHiddenTitle }) {
   const [isEditingNote, setIsEditingNote] = useState(false)
+  const [isMatchExpanded, setIsMatchExpanded] = useState(false)
+  const toggleMatchDetails = () => setIsMatchExpanded((isExpanded) => !isExpanded)
 
   const postedDate = formatPostedDate(job)
   const foundText = `Found ${formatTimeAgo(job.first_seen_at, now)}`
@@ -212,9 +277,11 @@ function JobRow({ job, now, layout, isSelected, isMuted, onSelect, onUpdateJob, 
               <span className="truncate text-[14px]" title={job.title}>
                 {job.title}
               </span>
+              <MatchScore match={job.match} isExpanded={isMatchExpanded} onToggle={toggleMatchDetails} />
               <FreshnessBadge badge={job.badge} />
               <AutoHiddenBadge reason={job.autoHideReason} />
             </div>
+            <MatchDetails match={job.match} isExpanded={isMatchExpanded} now={now} />
             <PeopleStatusLine job={job} now={now} />
             {noteArea}
           </div>
@@ -243,12 +310,16 @@ function JobRow({ job, now, layout, isSelected, isMuted, onSelect, onUpdateJob, 
             <FreshnessBadge badge={job.badge} />
           </div>
           {job.location && <div className="mt-0.5 text-[12px] text-zinc-500 dark:text-zinc-400">{job.location}</div>}
-          <div className="mt-1.5 truncate text-[15px]">{job.title}</div>
+          <div className="mt-1.5 flex min-w-0 items-center gap-2">
+            <span className="truncate text-[15px]">{job.title}</span>
+            <MatchScore match={job.match} isExpanded={isMatchExpanded} onToggle={toggleMatchDetails} />
+          </div>
           {job.autoHideReason && (
             <div className="mt-1">
               <AutoHiddenBadge reason={job.autoHideReason} />
             </div>
           )}
+          <MatchDetails match={job.match} isExpanded={isMatchExpanded} now={now} />
           <PeopleStatusLine job={job} now={now} />
           {noteArea}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">

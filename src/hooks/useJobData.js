@@ -4,6 +4,7 @@ import { fetchJobs } from '../data/fetchJobs'
 import { fetchLatestRuns } from '../data/fetchRuns'
 import { fetchHiddenTitles, hideTitle, unhideTitle } from '../data/hiddenTitles'
 import { fetchCurrentUserEmail, fetchJobTracking, saveJobTracking } from '../data/jobTracking'
+import { fetchJobScores } from '../data/resumeMatching'
 import { ARCHIVE_MAX_DAYS, AUTO_REFRESH_MS, BOARD_DAYS, makeJobKey, normalizeTitle } from '../lib/constants'
 
 const MIN_TIME_BETWEEN_FOCUS_REFRESHES_MS = 30_000
@@ -40,6 +41,7 @@ function mergeJobs(recentJobs, olderJobs) {
  *   fetchCurrentUserEmail() → who is signed in (asked once; only tracking and saves wait for it)
  *   fetchJobTracking()      → shared archived + your status / note + the others' status
  *   fetchHiddenTitles()     → titles you always hide
+ *   fetchJobScores()        → how well each job matches your resume (scored by the scraper)
  *   fetchLatestRuns()       → when each scraper last finished
  * Data OUT:
  *   updateJob()         → saves archived to job_tracking, status / note to personal_tracking
@@ -53,6 +55,8 @@ export function useJobData() {
   // What you've done with each job (status, note, archived), looked up by makeJobKey(company, job_id)
   const [jobTracking, setJobTracking] = useState(() => cached?.jobTracking ?? new Map())
   const [hiddenTitles, setHiddenTitles] = useState(() => cached?.hiddenTitles ?? new Set())
+  // Your resume-match score for each job, looked up by makeJobKey(company, job_id)
+  const [jobScores, setJobScores] = useState(() => cached?.jobScores ?? new Map())
   const [latestRuns, setLatestRuns] = useState(cached?.latestRuns ?? [])
   const [currentUserEmail, setCurrentUserEmail] = useState(cached?.userEmail ?? null)
   // With a cached board there's something to show already, so it isn't a "first load"
@@ -109,11 +113,16 @@ export function useJobData() {
     try {
       // Only tracking needs to know who's signed in; jobs and hidden titles start straight away
       const userEmailPromise = getUserEmail()
-      const [loadedJobs, loadedTracking, loadedHiddenTitles, userEmail] = await Promise.all([
+      const [loadedJobs, loadedTracking, loadedHiddenTitles, userEmail, loadedScores] = await Promise.all([
         fetchJobs({ since: boardStart }),
         userEmailPromise.then(fetchJobTracking),
         fetchHiddenTitles(),
         userEmailPromise,
+        // Scores are extra: if they can't load, the board still shows (with the last scores it had)
+        userEmailPromise.then(fetchJobScores).catch((error) => {
+          console.error(error)
+          return null
+        }),
       ])
 
       // Put back any edit that is still being saved, so the screen doesn't jump back
@@ -124,6 +133,7 @@ export function useJobData() {
       setRecentJobs(loadedJobs)
       setJobTracking(loadedTracking)
       setHiddenTitles(loadedHiddenTitles)
+      if (loadedScores) setJobScores(loadedScores)
       setLoadError(null)
       didLoadBoard = true
     } catch (error) {
@@ -162,8 +172,8 @@ export function useJobData() {
   // Keep the browser's copy up to date for the next visit
   useEffect(() => {
     if (!hasFreshData.current) return
-    writeBoardCache({ userEmail: currentUserEmail, recentJobs, olderJobs, jobTracking, hiddenTitles, latestRuns })
-  }, [currentUserEmail, recentJobs, olderJobs, jobTracking, hiddenTitles, latestRuns])
+    writeBoardCache({ userEmail: currentUserEmail, recentJobs, olderJobs, jobTracking, hiddenTitles, jobScores, latestRuns })
+  }, [currentUserEmail, recentJobs, olderJobs, jobTracking, hiddenTitles, jobScores, latestRuns])
 
   const jobs = useMemo(() => mergeJobs(recentJobs, olderJobs), [recentJobs, olderJobs])
 
@@ -241,6 +251,7 @@ export function useJobData() {
     jobTracking,
     latestRuns,
     hiddenTitles,
+    jobScores,
     isFirstLoad,
     isRefreshing,
     loadError,

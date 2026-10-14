@@ -8,7 +8,7 @@
 const CACHE_KEY = 'job-board-cache-v1'
 const MAX_CACHE_AGE_MS = 24 * 60 * 60 * 1000 // older than a day isn't worth showing, even for a second
 
-/** → { savedAt, userEmail, recentJobs, olderJobs, jobTracking (Map), hiddenTitles (Set), latestRuns } or null */
+/** → { savedAt, userEmail, recentJobs, olderJobs, jobTracking (Map), hiddenTitles (Set), jobScores (Map), latestRuns } or null */
 export function readBoardCache() {
   try {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY))
@@ -17,13 +17,14 @@ export function readBoardCache() {
       ...cached,
       jobTracking: new Map(cached.jobTracking),
       hiddenTitles: new Set(cached.hiddenTitles),
+      jobScores: new Map(cached.jobScores ?? []), // missing in caches saved before resume matching
     }
   } catch {
     return null
   }
 }
 
-export function writeBoardCache({ userEmail, recentJobs, olderJobs, jobTracking, hiddenTitles, latestRuns }) {
+export function writeBoardCache({ userEmail, recentJobs, olderJobs, jobTracking, hiddenTitles, jobScores, latestRuns }) {
   try {
     localStorage.setItem(
       CACHE_KEY,
@@ -34,6 +35,7 @@ export function writeBoardCache({ userEmail, recentJobs, olderJobs, jobTracking,
         olderJobs,
         jobTracking: [...jobTracking],
         hiddenTitles: [...hiddenTitles],
+        jobScores: [...jobScores],
         latestRuns,
       }),
     )

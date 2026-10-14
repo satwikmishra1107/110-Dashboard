@@ -61,3 +61,6 @@ export const NotebookIcon = (props) => (
 export const MonitorIcon = (props) => (
   <svg {...sharedIconProps} {...props}><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
 )
+export const ResumeIcon = (props) => (
+  <svg {...sharedIconProps} {...props}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" /><path d="M14 3v5h5" /><path d="m9 15 2 2 4-4" /></svg>
+)
